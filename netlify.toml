@@ -1,0 +1,45 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  # Zmiany w .autopost/ (lista postów) nie uruchamiają ponownego wdrożenia strony
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- public netlify netlify.toml"
+
+# Każda oferta ma własny adres /oferta/<nazwa> z poprawnymi meta tagami (podgląd na Facebooku, Google)
+[[redirects]]
+  from = "/"
+  to = "/.netlify/functions/seo"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/linki"
+  to = "/.netlify/functions/seo"
+  status = 200
+
+[[redirects]]
+  from = "/oferta/*"
+  to = "/.netlify/functions/seo"
+  status = 200
+
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/.netlify/functions/seo"
+  status = 200
+
+[[redirects]]
+  from = "/robots.txt"
+  to = "/.netlify/functions/seo"
+  status = 200
+
+# Pozostałe adresy (np. /admin, /prywatnosc) obsługuje strona
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Funkcja dostaje własną kopię strony (nie musi jej pobierać z internetu) i działa na nowym Node
+[functions]
+  included_files = ["public/index.html"]
+
+[build.environment]
+  NODE_VERSION = "20"
