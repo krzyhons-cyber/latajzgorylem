@@ -461,6 +461,22 @@
     ".q-terms{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}.q-term{background:#eaf4ff;color:#0b2447;border-radius:999px;padding:4px 6px 4px 12px;font-size:12.5px;font-weight:600}",
     ".q-term-x{border:0;background:transparent;cursor:pointer;color:#0b2447;font-size:13px;padding:0 6px}",
     ".ff-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}",
+    ".price-unit{font-size:12.5px;font-weight:600;opacity:.75;margin-left:6px;white-space:nowrap}",
+    ".pricing-box{margin:14px 0 4px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#f1f7fd}",
+    ".pricing-title{font-weight:800;font-size:13.5px;margin-bottom:8px;color:#0b2447}",
+    ".pr-row,.pr-sum,.pr-pp{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:13.5px;padding:6px 0}",
+    ".pr-row{border-top:1px solid var(--line)}.pr-row small{display:block;color:var(--ink-dim);font-size:12px;margin-top:1px}",
+    ".pr-sum{border-top:2px solid #0b2447;font-weight:800;font-size:15px}.pr-pp{font-weight:800;font-size:15px;color:#0a5aa6}",
+    ".pi-row{display:grid;grid-template-columns:110px 1fr 100px 200px auto;gap:8px;margin-bottom:8px;align-items:center}.pi-row input,.pi-row select{min-width:0}",
+    "@media (max-width:760px){.pi-row{grid-template-columns:1fr 1fr}.pi-row .pi-label{grid-column:1 / -1}}",
+    ".pi-sum{margin-top:10px;font-size:13.5px}",
+    ".social-box{text-align:center}.social-box h2{margin-bottom:6px}.social-box p{margin:0 0 16px}",
+    ".social-links{display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center}",
+    ".social-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:44px;height:44px;padding:0 14px;border-radius:999px;color:#fff;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 8px 20px -10px rgba(0,0,0,.6);transition:transform .15s ease}",
+    ".social-btn:hover{transform:translateY(-2px)}.social-btn:focus-visible{outline:3px solid #ffd166;outline-offset:2px}",
+    ".social-btn.fb{background:#1877f2}.social-btn.ig{background:linear-gradient(45deg,#f9a03c 0%,#e1306c 52%,#833ab4 100%)}",
+    "footer.site .social-btn{min-width:38px;height:38px;padding:0;width:38px;box-shadow:none}footer.site .social-btn svg{width:19px;height:19px}",
+    ".foot-social{display:inline-flex}",
     ".ff-badge{display:inline-block;background:#0b2447;color:#ffd166;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;margin-left:4px}",
     ".ff-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}",
     ".paste-zone{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;font-size:13px;color:var(--ink-dim);outline:none}",
@@ -717,6 +733,58 @@
     var a = parseDay(from), b = parseDay(to), n = a && b && b > a ? Math.round((b - a) / 86400000) : 0;
     return "🗓 Termin wyjazdu: " + r + (n ? " (" + nightsText(n) + ")" : "") + ".";
   }
+  // ---- rozbicie ceny: lot (za osobę), nocleg (za całość) … i liczba osób ----
+  var PRICE_KINDS = {
+    flight: { icon: "✈️", label: "Lot", basis: "person" },
+    hotel: { icon: "🏨", label: "Nocleg", basis: "total" },
+    car: { icon: "🚗", label: "Auto", basis: "total" },
+    other: { icon: "➕", label: "Inne", basis: "total" }
+  };
+  function computePricing(pr) {
+    var people = Math.max(1, Math.round(Number(pr.people)) || 1), total = 0;
+    var items = (pr.items || []).filter(function (x) { return x && typeof x.amount === "number" && !isNaN(x.amount) && x.amount >= 0; });
+    items.forEach(function (x) { total += x.basis === "person" ? x.amount * people : x.amount; });
+    var hl = pr.headline === "total" || pr.headline === "person" ? pr.headline : "manual";
+    return { people: people, items: items, total: total, perPerson: total / people, headline: hl };
+  }
+  function pricingOf(o) {
+    if (!o || !o.pricing || !o.pricing.items || !o.pricing.items.length) return null;
+    var c = computePricing(o.pricing);
+    return c.items.length ? c : null;
+  }
+  // tekst przy dużej cenie: "na osobę" / "dla 2 osób"
+  function priceUnit(o) {
+    var c = pricingOf(o);
+    if (!c) return "";
+    if (c.headline === "person") return "na osobę";
+    if (c.headline === "total" && c.people > 1) return "dla " + c.people + " osób";
+    return "";
+  }
+  function priceWithUnit(o) { var u = priceUnit(o); return formatPrice(o.currentPrice, o.currency) + (u ? " " + u : ""); }
+  function pricingLine(o) {
+    var c = pricingOf(o);
+    if (!c || c.people < 2) return "";
+    return formatPrice(c.total, o.currency) + " dla " + c.people + " osób · " + formatPrice(c.perPerson, o.currency) + " na osobę";
+  }
+  function priceUnitHtml(o) { var u = priceUnit(o); return u ? ' <small class="price-unit">' + escapeHtml(u) + "</small>" : ""; }
+  function priceBreakdownHtml(offer) {
+    var c = pricingOf(offer);
+    if (!c) return "";
+    var cur = offer.currency;
+    var rows = c.items.map(function (x) {
+      var k = PRICE_KINDS[x.kind] || PRICE_KINDS.other;
+      var sub = x.basis === "person"
+        ? (c.people > 1 ? formatPrice(x.amount, cur) + " × " + c.people + " os." : "cena za osobę")
+        : (c.people > 1 ? "cena za całość (" + c.people + " os.)" : "cena za całość");
+      var line = x.basis === "person" ? x.amount * c.people : x.amount;
+      return '<div class="pr-row"><span>' + k.icon + " " + escapeHtml(k.label + (x.label ? " — " + x.label : "")) + "<small>" + escapeHtml(sub) + '</small></span><b class="mono">' + formatPrice(line, cur) + "</b></div>";
+    }).join("");
+    return '<div class="pricing-box"><div class="pricing-title">Z czego składa się cena</div>' + rows +
+      '<div class="pr-sum"><span>Razem' + (c.people > 1 ? " dla " + c.people + " osób" : "") + '</span><b class="mono">' + formatPrice(c.total, cur) + "</b></div>" +
+      (c.people > 1 ? '<div class="pr-pp"><span>Na osobę</span><b class="mono">' + formatPrice(c.perPerson, cur) + "</b></div>" : "") + "</div>";
+  }
+  function pricingLineHtml(o) { var l = pricingLine(o); return l ? '<div class="added">👥 ' + escapeHtml(l) + "</div>" : ""; }
+
   // ---- dodatkowe terminy lotów (offer.terms) ----
   function pluralTerms(n) { var l = n % 10, teen = n % 100 >= 12 && n % 100 <= 14; return n + (n === 1 ? " termin" : (l >= 2 && l <= 4 && !teen ? " terminy" : " terminów")); }
   // przyszłe terminy oferty; withMain = dołącz główny termin (dateFrom/dateTo), jeśli go nie ma na liście
@@ -896,10 +964,12 @@
     if (offer.destination) lines.push("📍 " + offer.destination);
     if (pct > 0) {
       lines.push("💰 Zamiast " + formatPrice(offer.originalPrice, offer.currency) +
-        " — teraz " + formatPrice(offer.currentPrice, offer.currency) + " (-" + pct + "%)");
+        " — teraz " + priceWithUnit(offer) + " (-" + pct + "%)");
     } else {
-      lines.push("💰 " + formatPrice(offer.currentPrice, offer.currency));
+      lines.push("💰 " + priceWithUnit(offer));
     }
+    var plineSoc = pricingLine(offer);
+    if (plineSoc) lines.push("👥 " + plineSoc);
     if (offer.createdAt) lines.push("🕒 Cena z dnia " + addedShort(offer.createdAt) + " — może się zmienić");
     lines.push("");
     if (offer.description) {
@@ -926,7 +996,7 @@
     var fbUrl = withUtm(shareUrl, "facebook", "social");
     var tags = buildHashtags(offer);
     var pct = discountPercent(offer.originalPrice, offer.currentPrice);
-    var price = formatPrice(offer.currentPrice, offer.currency);
+    var price = priceWithUnit(offer);
     var icon = CATEGORY_ICONS[offer.category] || "✈️";
     var dest = firstPart(offer.destination);
     var dated = offer.createdAt ? "🕒 Cena z dnia " + addedShort(offer.createdAt) + " — może się zmienić" : "";
@@ -1470,9 +1540,10 @@
           '<div class="dest">' + escapeHtml(offer.destination || "") + "</div>" +
           '<div class="price-row">' +
             (pct > 0 ? '<span class="price-was mono">' + formatPrice(offer.originalPrice, offer.currency) + "</span>" : "") +
-            '<span class="price-now mono">' + formatPrice(offer.currentPrice, offer.currency) + "</span>" +
+            '<span class="price-now mono">' + formatPrice(offer.currentPrice, offer.currency) + priceUnitHtml(offer) + "</span>" +
           "</div>" +
           (tripShort(offer) ? '<div class="added">🗓 ' + escapeHtml(tripShort(offer)) + "</div>" : "") +
+          pricingLineHtml(offer) +
           ((offer.terms || []).length && offerTerms(offer, true).length > 1 ? '<div class="added">📅 ' + pluralTerms(offerTerms(offer, true).length) + " do wyboru</div>" : "") +
           (offer.createdAt ? '<div class="added">Dodano ' + escapeHtml(addedShort(offer.createdAt)) + "</div>" : "") +
         "</div>" +
@@ -1497,6 +1568,7 @@
             '<div class="promo-price">' +
               (pct > 0 ? '<span class="was">' + formatPrice(featured.originalPrice, featured.currency) + "</span>" : "") +
               '<span class="now">' + formatPrice(featured.currentPrice, featured.currency) + "</span>" +
+              (priceUnit(featured) ? '<span class="was" style="text-decoration:none;opacity:.85">' + escapeHtml(priceUnit(featured)) + "</span>" : "") +
             "</div>" +
             '<span class="promo-cta">Zobacz ofertę →</span>' +
             (featured.createdAt ? '<small>Dodano ' + escapeHtml(addedShort(featured.createdAt)) + "</small>" : "") +
@@ -1621,7 +1693,8 @@
         '<div class="buybox">' +
           (pct > 0 ? '<div class="badge discount" style="position:static;display:inline-block;margin-bottom:8px">-' + pct + "% taniej</div>" : "") +
           (pct > 0 ? '<div class="price-was mono">' + formatPrice(offer.originalPrice, offer.currency) + "</div>" : "") +
-          '<div class="price-now mono">' + formatPrice(offer.currentPrice, offer.currency) + "</div>" +
+          '<div class="price-now mono">' + formatPrice(offer.currentPrice, offer.currency) + priceUnitHtml(offer) + "</div>" +
+          priceBreakdownHtml(offer) +
           (offer.createdAt ? '<div class="added-box">🕒 Oferta dodana: <b>' + escapeHtml(addedLong(offer.createdAt)) + '</b><small>Cena obowiązywała w momencie publikacji — mogła się zmienić. Sprawdź aktualną cenę u partnera.</small></div>' : "") +
           getOfferLinks(offer).map(function (l, idx) {
             var t = LINK_TYPES[l.type];
@@ -1650,7 +1723,7 @@
   var adminEditingSlug = null;
 
   function emptyDraft() {
-    return { title: "", destination: "", category: "packages", provider: "", originalPrice: "", currentPrice: "", currency: "PLN", image: "", affiliateUrl: "", links: [], extras: [], terms: [], description: "", validUntil: "", dateFrom: "", dateTo: "", status: "published", publishAt: "", featured: false };
+    return { title: "", destination: "", category: "packages", provider: "", originalPrice: "", currentPrice: "", currency: "PLN", image: "", affiliateUrl: "", links: [], extras: [], terms: [], pricing: null, description: "", validUntil: "", dateFrom: "", dateTo: "", status: "published", publishAt: "", featured: false };
   }
 
   // The photo currently chosen in the form: either a pasted URL or an
@@ -1728,6 +1801,92 @@
   };
   var EXTRA_ORDER = ["flight", "hotel", "car", "holiday"];
 
+  function pricingRowHtml(x) {
+    x = x || {};
+    var kind = PRICE_KINDS[x.kind] ? x.kind : "flight";
+    var basis = x.basis === "person" || x.basis === "total" ? x.basis : PRICE_KINDS[kind].basis;
+    return '<div class="pi-row"><select class="pi-kind" aria-label="Rodzaj pozycji">' +
+      Object.keys(PRICE_KINDS).map(function (k) { return '<option value="' + k + '"' + (k === kind ? " selected" : "") + ">" + PRICE_KINDS[k].icon + " " + PRICE_KINDS[k].label + "</option>"; }).join("") + "</select>" +
+      '<input class="pi-label" placeholder="Opis (np. Warszawa → Rzym, 7 nocy)" value="' + escapeHtml(x.label || "") + '">' +
+      '<input class="pi-amount" type="number" min="0" step="1" placeholder="Kwota" value="' + escapeHtml(x.amount === undefined || x.amount === null ? "" : x.amount) + '">' +
+      '<select class="pi-basis" aria-label="Za kogo jest ta kwota"><option value="person"' + (basis === "person" ? " selected" : "") + '>za osobę</option><option value="total"' + (basis === "total" ? " selected" : "") + ">za całość (np. nocleg za 2 os.)</option></select>" +
+      '<button type="button" class="btn ghost small pi-remove" title="Usuń pozycję">✕</button></div>';
+  }
+  function pricingFieldsHtml(P, pr) {
+    var has = pr && pr.items && pr.items.length;
+    var hl = pr && (pr.headline === "total" || pr.headline === "person" || pr.headline === "manual") ? pr.headline : "auto";
+    var opt = function (v, t) { return '<option value="' + v + '"' + (v === hl ? " selected" : "") + ">" + t + "</option>"; };
+    return '<details class="finder pricing-fields" id="' + P + '_pricing"' + (has ? " open" : "") + "><summary>👥 Rozbicie ceny: lot, nocleg i cena za osobę / za całość (opcjonalnie)</summary>" +
+      '<span class="hint" style="display:block;margin-bottom:10px">Lot zwykle podaje się za osobę, a nocleg za cały pokój (2 osoby). Dodaj pozycje, a strona sama policzy sumę dla wszystkich osób i cenę na osobę.</span>' +
+      '<div class="two-col">' +
+        '<div class="field"><label for="' + P + '_people">Liczba osób</label><input id="' + P + '_people" type="number" min="1" max="12" step="1" value="' + (pr && pr.people ? escapeHtml(pr.people) : 2) + '"></div>' +
+        '<div class="field"><label for="' + P + '_headline">Cena główna oferty (duża cena na stronie)</label><select id="' + P + '_headline">' +
+          opt("auto", "Cena na osobę (domyślnie)") + opt("person", "Cena na osobę (zapisana na stałe)") + opt("total", "Suma dla wszystkich osób") + opt("manual", "Wpisana ręcznie w polu „Cena”") +
+        "</select></div>" +
+      "</div>" +
+      '<div id="' + P + '_pitems">' + (has ? pr.items.map(pricingRowHtml).join("") : "") + "</div>" +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+        '<button type="button" class="btn ghost small" data-pi-add="flight">+ Lot (za osobę)</button>' +
+        '<button type="button" class="btn ghost small" data-pi-add="hotel">+ Nocleg (za całość)</button>' +
+        '<button type="button" class="btn ghost small" data-pi-add="car">+ Auto</button>' +
+        '<button type="button" class="btn ghost small" data-pi-add="other">+ Inna pozycja</button></div>' +
+      '<div id="' + P + '_psum" class="pi-sum" role="status"></div></details>';
+  }
+  function readPricing(P) {
+    var box = byId(P + "_pitems");
+    if (!box) return null;
+    var items = [];
+    qsa(".pi-row", box).forEach(function (row) {
+      var raw = qs(".pi-amount", row).value;
+      if (raw === "") return;
+      var amount = parseFloat(raw);
+      if (isNaN(amount) || amount < 0) return;
+      items.push({ kind: qs(".pi-kind", row).value, label: qs(".pi-label", row).value.trim(), amount: amount, basis: qs(".pi-basis", row).value === "person" ? "person" : "total" });
+    });
+    if (!items.length) return null;
+    var people = Math.max(1, Math.min(12, parseInt(byId(P + "_people").value, 10) || 1));
+    var hl = byId(P + "_headline").value;
+    if (hl === "auto") hl = "person"; // duża cena oferty = cena za 1 osobę (suma jest w rozbiciu)
+    return { people: people, headline: hl, items: items };
+  }
+  // dodaje pozycję (np. lot z wyszukiwarki) i odświeża sumę
+  function piAdd(P, x) {
+    var items = byId(P + "_pitems"), box = byId(P + "_pricing");
+    if (!items) return;
+    items.insertAdjacentHTML("beforeend", pricingRowHtml(x));
+    if (box) box.open = true;
+    items.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  function piEnsureFlight(P, r, ctx) {
+    var box = byId(P + "_pricing");
+    if (!box || !box.open) return; // tylko gdy rozbicie ceny zostało włączone
+    var has = qsa(".pi-row .pi-kind", box).some(function (k) { return k.value === "flight"; });
+    if (!has) piAdd(P, { kind: "flight", label: ctx.fromName + " → " + ctx.toName, amount: Math.round(r.price), basis: "person" });
+    else byId(P + "_pitems").dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  function wirePricing(P, priceId, curId) {
+    var box = byId(P + "_pricing");
+    if (!box) return;
+    function update() {
+      var pr = readPricing(P), sum = byId(P + "_psum");
+      if (!pr) { sum.innerHTML = ""; return; }
+      var c = computePricing(pr), cur = byId(curId).value || "PLN";
+      sum.innerHTML = "Razem" + (c.people > 1 ? " dla " + c.people + " osób" : "") + ": <b>" + formatPrice(c.total, cur) + "</b>" +
+        (c.people > 1 ? " · na osobę: <b>" + formatPrice(c.perPerson, cur) + "</b>" : "") +
+        (pr.headline === "manual" ? "" : " · duża cena oferty: <b>" + (pr.headline === "total" ? "suma" : "cena na osobę") + "</b>");
+      if (pr.headline !== "manual") byId(priceId).value = Math.round(pr.headline === "total" ? c.total : c.perPerson);
+    }
+    box.addEventListener("input", update);
+    box.addEventListener("change", update);
+    box.addEventListener("click", function (e) {
+      var rm = e.target.closest(".pi-remove");
+      if (rm) { rm.closest(".pi-row").remove(); update(); return; }
+      var add = e.target.closest("[data-pi-add]");
+      if (add) { var k = add.getAttribute("data-pi-add"); piAdd(P, { kind: k, basis: PRICE_KINDS[k].basis }); }
+    });
+    byId(curId).addEventListener("change", update);
+    update();
+  }
   function termRowHtml(x) {
     x = x || {};
     return '<div class="term-row">' +
@@ -1831,6 +1990,7 @@
             "</select></div>" +
             (adminEditingSlug ? '<div class="field checkbox-field" style="align-self:end"><input type="checkbox" id="f_refreshDate"><label for="f_refreshDate" style="font-size:13px;font-weight:500;color:var(--ink)">Zaktualizuj datę dodania (np. po zmianie ceny)</label></div>' : "<div></div>") +
           "</div>" +
+          pricingFieldsHtml("fp", draft.pricing) +
           '<div class="two-col">' +
             '<div class="field"><label for="f_dateFrom">Wyjazd od (data z kalendarza)</label><input id="f_dateFrom" type="date" value="' + escapeHtml(draft.dateFrom || "") + '"></div>' +
             '<div class="field"><label for="f_dateTo">Powrót / wyjazd do</label><input id="f_dateTo" type="date" value="' + escapeHtml(draft.dateTo || "") + '"></div>' +
@@ -2122,6 +2282,7 @@
             '<div class="field"><label for="q_price">Cena *</label><input id="q_price" type="number" min="0" step="1" required></div>' +
             '<div class="field"><label for="q_from">Skąd (tylko loty, opcjonalnie)</label><input id="q_from" placeholder="np. Warszawa"></div>' +
           "</div>" +
+          pricingFieldsHtml("qp", null) +
           '<div class="two-col">' +
             '<div class="field"><label for="q_dateFrom">Wyjazd od (kalendarz)</label><input id="q_dateFrom" type="date"></div>' +
             '<div class="field"><label for="q_dateTo">Powrót / do</label><input id="q_dateTo" type="date"></div>' +
@@ -2218,6 +2379,8 @@
       var dest = byId("q_dest").value.trim();
       var url = byId("q_url").value.trim();
       var price = parseFloat(byId("q_price").value);
+      var qPricing = readPricing("qp");
+      if (qPricing && qPricing.headline !== "manual") { var qpc = computePricing(qPricing); price = Math.round(qPricing.headline === "total" ? qpc.total : qpc.perPerson); }
       var from = byId("q_from").value.trim();
       var origRaw = byId("q_orig").value;
       var cur = byId("q_cur").value;
@@ -2256,6 +2419,7 @@
         affiliateUrl: url,
         links: [{ type: t.link, label: "", url: url }],
         terms: quickTerms.slice(),
+        pricing: qPricing,
         extras: quickShot ? [{ type: t.extra, a: info.from, b: city, price: price, url: url, shot: quickShot }] : [],
         description: withTripLine(byId("q_tpl").value ? descTemplate(byId("q_tpl").value, { destination: dest, currentPrice: price, currency: cur }) : autoDescription(typeKey, info), byId("q_dateFrom").value, byId("q_dateTo").value),
         dateFrom: byId("q_dateFrom").value || "",
@@ -2274,6 +2438,7 @@
       });
     });
 
+    wirePricing("qp", "q_price", "q_cur");
     function renderQuickTerms() {
       byId("q_terms").innerHTML = quickTerms.map(function (t, i) {
         var w = termWhen(t);
@@ -2336,6 +2501,7 @@
     ["q_dateFrom", "q_dateTo"].forEach(function (id) { byId(id).dispatchEvent(new Event("change", { bubbles: true })); });
     byId("q_urlHint").textContent = "Link wygenerowany z Twoim identyfikatorem partnerskim.";
     byId("quickForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    piEnsureFlight("qp", r, ctx);
     return "Uzupełniono formularz poniżej (cena, link i termin) — sprawdź i kliknij „Dodaj ofertę”.";
   }
 
@@ -2354,6 +2520,7 @@
     byId("f_dateTo").value = String(r.return_at || "").slice(0, 10);
     ["f_dateFrom", "f_dateTo"].forEach(function (id) { byId(id).dispatchEvent(new Event("change", { bubbles: true })); });
     byId("f_title").scrollIntoView({ behavior: "smooth", block: "center" });
+    piEnsureFlight("fp", r, ctx);
     return "Uzupełniono formularz poniżej (kierunek, cena, link, termin) — sprawdź i zapisz ofertę.";
   }
 
@@ -2637,10 +2804,18 @@
         ctx.fillStyle = "#0a2a5e"; ctx.fillText(dtxt, padX + ph0 * 1.1, C.destY + ph0 * 0.68);
       }
       // big price badge
+      var unitTxt = (function () { var pc = pricingOf(offer); if (!pc) return ""; if (pc.headline === "person") return "/ os."; if (pc.headline === "total" && pc.people > 1) return "/ " + pc.people + " os."; return ""; })();
+      var ufs = Math.round(C.priceFs * 0.42), ugap = C.priceFs * 0.18;
       ctx.font = "800 " + C.priceFs + "px " + sans;
-      var pw = ctx.measureText(priceTxt).width + C.priceFs * 0.9;
+      var pw1 = ctx.measureText(priceTxt).width;
+      ctx.font = "700 " + ufs + "px " + sans;
+      var uw = unitTxt ? ctx.measureText(unitTxt).width + ugap : 0;
+      var pw = pw1 + uw + C.priceFs * 0.9;
       ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ffc21a"; roundRectPath(ctx, padX, C.priceY, pw, C.priceH, 30); ctx.fill(); ctx.restore();
-      ctx.fillStyle = "#0b1a30"; ctx.fillText(priceTxt, padX + C.priceFs * 0.45, C.priceY + C.priceH / 2 + C.priceFs * 0.35);
+      ctx.fillStyle = "#0b1a30";
+      ctx.font = "800 " + C.priceFs + "px " + sans;
+      ctx.fillText(priceTxt, padX + C.priceFs * 0.45, C.priceY + C.priceH / 2 + C.priceFs * 0.35);
+      if (unitTxt) { ctx.font = "700 " + ufs + "px " + sans; ctx.fillText(unitTxt, padX + C.priceFs * 0.45 + pw1 + ugap, C.priceY + C.priceH / 2 + C.priceFs * 0.35); }
       // call to action (feed formats); Stories get the link-sticker look-alike instead
       if (C.cta) {
         ctx.font = "800 " + C.ctaFs + "px " + sans;
@@ -2957,19 +3132,24 @@
 
   /* ========================= PUBLIC: SUBSCRIBE + PRIVACY =================== */
 
+  var SOCIAL = {
+    facebook: "https://www.facebook.com/profile.php?id=61595431185711",
+    instagram: "https://www.instagram.com/latajzgorylem.pl/"
+  };
+  var ICON_FB = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 12.073C24 5.446 18.627.073 12 .073S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>';
+  var ICON_IG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.25" fill="currentColor"/></svg>';
+  function socialIconsHtml(withText) {
+    return '<span class="social-links">' +
+      '<a class="social-btn fb" href="' + SOCIAL.facebook + '" target="_blank" rel="noopener" aria-label="Facebook — ' + escapeHtml(BRAND) + '" title="Facebook">' + ICON_FB + (withText ? "<span>Facebook</span>" : "") + "</a>" +
+      '<a class="social-btn ig" href="' + SOCIAL.instagram + '" target="_blank" rel="noopener" aria-label="Instagram — ' + escapeHtml(BRAND) + '" title="Instagram">' + ICON_IG + (withText ? "<span>Instagram</span>" : "") + "</a>" +
+    "</span>";
+  }
   function subscribeBoxHtml() {
-    if (!SB.enabled()) return "";
     return (
-      '<section class="subscribe" id="subBox">' +
-        "<h2>🔔 Nie przegap nowych ofert</h2>" +
-        "<p>Zostaw e-mail — damy znać, gdy pojawi się nowa okazja. Bez spamu.</p>" +
-        '<form id="subForm" novalidate>' +
-          '<div class="sub-row-form"><input type="email" id="sub_email" placeholder="Twój adres e-mail" autocomplete="email" aria-label="Adres e-mail">' +
-          '<input type="text" id="sub_hp" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">' +
-          '<button type="submit" class="btn primary">Zapisz mnie</button></div>' +
-          '<label class="consent"><input type="checkbox" id="sub_consent"> Wyrażam zgodę na otrzymywanie powiadomień e-mail o nowych ofertach. Zgodę mogę wycofać w każdej chwili. <a href="/prywatnosc">Polityka prywatności</a></label>' +
-          '<div id="subMsg" role="status"></div>' +
-        "</form>" +
+      '<section class="subscribe social-box" id="subBox">' +
+        "<h2>Obserwuj nas — bądź na bieżąco z okazjami</h2>" +
+        "<p>Nowe tanie loty, noclegi i wczasy dodajemy na bieżąco. Znajdziesz nas na Facebooku i Instagramie.</p>" +
+        socialIconsHtml(true) +
       "</section>"
     );
   }
@@ -3054,6 +3234,7 @@
       var b = e.target.closest(".tm-remove");
       if (b) b.closest(".term-row").remove();
     });
+    wirePricing("fp", "f_currentPrice", "f_currency");
     wireFlightFinder("fa", ffFillAdv, function (r) {
       addTermRow({ from: String(r.departure_at || "").slice(0, 10), to: String(r.return_at || "").slice(0, 10), price: Math.round(r.price), url: r.url });
       return true;
@@ -3062,6 +3243,8 @@
       e.preventDefault();
       var title = byId("f_title").value.trim();
       var currentPrice = parseFloat(byId("f_currentPrice").value);
+      var pricing = readPricing("fp");
+      if (pricing && pricing.headline !== "manual") { var pcc = computePricing(pricing); currentPrice = Math.round(pricing.headline === "total" ? pcc.total : pcc.perPerson); }
       var links = [];
       qsa(".link-row").forEach(function (row) {
         var url = qs(".lr-url", row).value.trim();
@@ -3130,6 +3313,7 @@
         links: links,
         extras: extras,
         terms: terms,
+        pricing: pricing,
         description: byId("f_description").value.trim(),
         featured: byId("f_featured").checked,
         dateFrom: byId("f_dateFrom").value || "",
@@ -3466,6 +3650,7 @@
       '<footer class="site">' +
         '<span>© ' + new Date().getFullYear() + ' <span class="brand-word">' + brandWordHtml(state.siteName) + "</span></span>" +
         '<span>Strona utrzymuje się z linków afiliacyjnych. · <a class="foot-link" href="/prywatnosc">Polityka prywatności</a></span>' +
+        '<span class="foot-social">' + socialIconsHtml(false) + "</span>" +
       "</footer>"
     );
   }

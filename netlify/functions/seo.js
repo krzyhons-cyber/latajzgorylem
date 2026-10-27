@@ -147,7 +147,19 @@ async function handle(event, ua) {
     const termList = (Array.isArray(o.terms) ? o.terms : []).filter((x) => x && x.from && (x.to || x.from) >= todayIso).sort((p, q) => (p.from < q.from ? -1 : 1)).slice(0, 4);
     const shortDay = (iso) => { const d = new Date(iso + "T12:00:00Z"); return isNaN(d.getTime()) ? "" : d.toLocaleDateString("pl-PL", { day: "numeric", month: "short", timeZone: "Europe/Warsaw" }); };
     const termsTxt = termList.length > 1 || (termList.length === 1 && !o.dateFrom) ? "terminy: " + termList.map((x) => shortDay(x.from) + (x.to ? "–" + shortDay(x.to) : "")).join(", ") : "";
-    const descBits = [o.destination, price && "cena " + price + (added ? " z dnia " + added : ""), termsTxt].filter(Boolean).join(" · ");
+    // rozbicie ceny: "na osobę" / "dla 2 osób"
+    let priceNote = "";
+    const pr = o.pricing && Array.isArray(o.pricing.items) ? o.pricing : null;
+    if (pr) {
+      const people = Math.max(1, Math.round(Number(pr.people)) || 1);
+      let sum = 0;
+      pr.items.forEach((x) => { if (x && typeof x.amount === "number" && x.amount >= 0) sum += x.basis === "person" ? x.amount * people : x.amount; });
+      if (sum > 0) {
+        if (pr.headline === "person") priceNote = " na osobę" + (people > 1 ? " (" + fmtPrice(sum, o.currency) + " dla " + people + " osób)" : "");
+        else if (pr.headline === "total" && people > 1) priceNote = " dla " + people + " osób (" + fmtPrice(sum / people, o.currency) + " na osobę)";
+      }
+    }
+    const descBits = [o.destination, price && "cena " + price + priceNote + (added ? " z dnia " + added : ""), termsTxt].filter(Boolean).join(" · ");
     const excerpt = String(o.description || "").split("\n")[0].slice(0, 160);
     const desc = (descBits + (excerpt ? ". " + excerpt : "")).slice(0, 300);
     const image = pickImage(o, origin);
