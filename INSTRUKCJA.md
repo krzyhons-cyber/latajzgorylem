@@ -1,4 +1,4 @@
-# latajzgorylem.pl v7 – instrukcja wdrożenia
+# latajzgorylem.pl v9 – instrukcja wdrożenia
 
 > **v6 – motyw „tropikalny zachód słońca”:** niebieskie tło z przejściem do żółci, kremowe karty zamiast białych, żółte przyciski,
 > sekcja powitalna z zachodem słońca, morzem i palmami, pas z palmami nad stopką. Zmiana dotyczy tylko pliku `public/index.html` –
@@ -243,3 +243,17 @@ adres `/oferta/nazwa` nie jest obsługiwany przez funkcję `seo`. Sprawdź:
 - Układ strony głównej: baner → wyszukiwarka i kategorie (Wszystkie, Loty, Noclegi…) → oferta dnia → lista ofert. Kafelek z liczbą ofert usunięto.
 - Oferta dnia ma żółto-pomarańczowe tło promocyjne i pojawia się tylko, gdy zaznaczysz „oferta dnia” przy ofercie.
 - Uwaga: sama nazwa w serwisie to napis; adres strony (domena) zmieniasz osobno w Netlify (Domain management).
+
+## Nowości v8 (wyszukiwarka lotów, sortowanie, przypięty pasek)
+
+- **Wyszukiwanie lotów z konkretnymi datami.** Wyszukiwarka lotów jest teraz w szybkim dodawaniu oraz w „Pełnym formularzu”. W polu „Termin” wybierz „Najtańszy w wybranym miesiącu” albo „Konkretne daty wylotu i powrotu”. Przy konkretnych datach możesz dodać elastyczność (± 1–3 dni, z tym samym czasem pobytu). Po kliknięciu „Użyj” uzupełnia się cena, link partnerski, kierunek **oraz terminy wyjazdu** (a więc i linijka „🗓 Termin wyjazdu”). Funkcja `flights` w Supabase się **nie zmieniła** — nic nie trzeba wdrażać ponownie.
+- **Uwaga:** Travelpayouts pokazuje ceny, które ostatnio znaleźli użytkownicy. Dla dokładnej daty bywa ich brak — wtedy użyj elastyczności ± 2 dni albo trybu miesiąca.
+- **Najnowsze oferty na górze.** Domyślne sortowanie: oferta dnia, potem od najnowszej. Oferta zaplanowana do publikacji liczy się od momentu publikacji (nie od chwili utworzenia szkicu), więc po opublikowaniu ląduje na samej górze.
+- **Przypięty pasek.** Górny pasek z logo oraz wyszukiwarka, sortowanie i kategorie zostają na wierzchu podczas przewijania — także na telefonie (kategorie przesuwasz palcem w bok).
+
+## Nowości v9 (dodatkowe terminy lotów)
+
+- **Dostępne terminy przy ofercie.** W „Pełnym formularzu” jest pole „Dodatkowe dostępne terminy lotów”: data wylotu, data powrotu, cena i (opcjonalnie) własny link. Puste pole linku oznacza główny link oferty. W szybkim dodawaniu to samo jest pod datami wyjazdu.
+- **Z wyszukiwarki lotów jednym kliknięciem.** Przy każdym wyniku jest przycisk „+ Termin”, a pod listą „+ Dodaj wszystkie jako terminy”. Termin z wyszukiwarki zachowuje własną cenę i własny link partnerski. Przycisk „Użyj” nadal ustawia główny termin oferty.
+- **Co widzi odwiedzający.** Na stronie oferty sekcja „📅 Dostępne terminy” (z głównym terminem, z oznaczeniem „najtaniej” i przyciskiem „Sprawdź termin”), a na kafelku informacja „N terminów do wyboru”. Minione terminy znikają same. Terminy trafiają też do opisu podglądu na Facebooku.
+- Funkcja `flights` w Supabase się nie zmieniła. Wdrażasz tylko pliki strony (przez GitHub, jak dotychczas).

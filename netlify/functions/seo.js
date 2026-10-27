@@ -143,7 +143,11 @@ async function handle(event, ua) {
     const added = fmtDate(o.createdAt);
     const priceDigits = price.replace(/\D/g, "");
     const title = o.title + (price && String(o.title).replace(/\D/g, "").indexOf(priceDigits) === -1 ? " — " + price : "");
-    const descBits = [o.destination, price && "cena " + price + (added ? " z dnia " + added : "")].filter(Boolean).join(" · ");
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const termList = (Array.isArray(o.terms) ? o.terms : []).filter((x) => x && x.from && (x.to || x.from) >= todayIso).sort((p, q) => (p.from < q.from ? -1 : 1)).slice(0, 4);
+    const shortDay = (iso) => { const d = new Date(iso + "T12:00:00Z"); return isNaN(d.getTime()) ? "" : d.toLocaleDateString("pl-PL", { day: "numeric", month: "short", timeZone: "Europe/Warsaw" }); };
+    const termsTxt = termList.length > 1 || (termList.length === 1 && !o.dateFrom) ? "terminy: " + termList.map((x) => shortDay(x.from) + (x.to ? "–" + shortDay(x.to) : "")).join(", ") : "";
+    const descBits = [o.destination, price && "cena " + price + (added ? " z dnia " + added : ""), termsTxt].filter(Boolean).join(" · ");
     const excerpt = String(o.description || "").split("\n")[0].slice(0, 160);
     const desc = (descBits + (excerpt ? ". " + excerpt : "")).slice(0, 300);
     const image = pickImage(o, origin);
