@@ -2710,7 +2710,7 @@
     return lines;
   }
 
-  function ogKeyOf(o) { return [o.title, o.currentPrice, o.currency, o.destination, o.image, o.createdAt, "split-v12",tripShort(o),JSON.stringify(o.pricing||null)].join("|"); }
+  function ogKeyOf(o) { return [o.title, o.currentPrice, o.currency, o.destination, o.image, o.createdAt, "photo-orange-v13",tripShort(o),JSON.stringify(o.pricing||null)].join("|"); }
 
   var CARD_SIZES = { og: [1200, 630], ig: [1080, 1350], story: [1080, 1920] };
 
@@ -2748,84 +2748,112 @@
       return loadImage("/logo-mark.png").catch(function () { return null; }).then(function (mk) { return [bg, mk]; });
     }).then(function (pair) {
       var bg = pair[0], mark = pair[1];
-      var sans = "Poppins, 'Segoe UI', Arial, sans-serif";
-      var brand = state.siteName || BRAND;
-      ctx.textBaseline = "alphabetic";
-      // Układ "zdjęcie + panel": zdjęcie osobno (nic go nie zasłania), obok / pod nim panel z tytułem, terminem, ceną i przyciskiem.
-      var L = {
-        og:    { px: 0, py: 0, pw: 700, ph: 630, x: 700, y: 0, w: 500, h: 630, pad: 42, fs0: 46, fsMin: 30, lines: 4, termFs: 25, priceFs: 58, unitFs: 26, btn: true, btnH: 72, btnFs: 30, brandFs: 22 },
-        ig:    { px: 0, py: 0, pw: 1080, ph: 630, x: 0, y: 630, w: 1080, h: 720, pad: 56, fs0: 66, fsMin: 40, lines: 3, termFs: 32, priceFs: 84, unitFs: 36, btn: true, btnH: 96, btnFs: 40, brandFs: 26 },
-        story: { px: 0, py: 0, pw: 1080, ph: 960, x: 0, y: 960, w: 1080, h: 960, pad: 60, fs0: 72, fsMin: 44, lines: 3, termFs: 36, priceFs: 96, unitFs: 40, btn: false, btnH: 104, btnFs: 40, brandFs: 28 }
-      }[mode];
-      function shadowOn(c) { c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 16; c.shadowOffsetY = 5; }
-      // zdjęcie (cover) w swoim prostokącie
-      ctx.save(); ctx.beginPath(); ctx.rect(L.px, L.py, L.pw, L.ph); ctx.clip();
-      var sc = Math.max(L.pw / bg.width, L.ph / bg.height), w = bg.width * sc, h = bg.height * sc;
-      if ("filter" in ctx) ctx.filter = "saturate(1.25) contrast(1.05) brightness(1.03)";
-      ctx.drawImage(bg, L.px + (L.pw - w) / 2, L.py + (L.ph - h) / 2, w, h);
+      var sc = Math.max(W / bg.width, H / bg.height), w = bg.width * sc, h = bg.height * sc;
+      if ("filter" in ctx) ctx.filter = "saturate(1.3) contrast(1.07) brightness(1.03)"; // brighter, punchier colours (ignored where unsupported)
+      ctx.drawImage(bg, (W - w) / 2, (H - h) / 2, w, h);
       if ("filter" in ctx) ctx.filter = "none";
-      ctx.restore();
-      // panel w kolorze strony
-      var pg = ctx.createLinearGradient(L.x, L.y, L.x + L.w, L.y + L.h);
-      pg.addColorStop(0, "#ffb02e"); pg.addColorStop(1, "#ff7a00");
-      ctx.fillStyle = pg; ctx.fillRect(L.x, L.y, L.w, L.h);
-      if (mode === "ig") { ctx.fillStyle = "#ffc21a"; ctx.fillRect(0, L.y - 8, W, 8); }
-      if (mode === "story") { ctx.fillStyle = "#ffc21a"; ctx.fillRect(0, L.y - 8, W, 8); }
-      var NAVY = "#0b1a30", innerW = L.w - L.pad * 2, x0 = L.x + L.pad;
-      // tytuł (dopasowany do wolnego miejsca)
-      var tl, tfs, titleTxt = String(offer.title || "");
-      for (tfs = L.fs0; tfs >= L.fsMin; tfs -= 2) {
-        ctx.font = "800 " + tfs + "px " + sans; tl = wrapLines(ctx, titleTxt, innerW, L.lines);
-        if (tl.length <= L.lines && !/…$/.test(tl[tl.length - 1] || "") && tl.every(function (l) { return ctx.measureText(l).width <= innerW; })) break;
+      var priceTxt = formatPrice(offer.currentPrice, offer.currency);
+      var brand = state.siteName || BRAND;
+      var sans = "Poppins, 'Segoe UI', Arial, sans-serif", serif = sans, mono = sans;
+      // logo badge (white tile with the gorilla) + site name
+      function drawBrand(x, y, h) {
+        var tx = x;
+        if (mark) {
+          var mw = h * mark.width / mark.height;
+          ctx.fillStyle = "#ffffff"; roundRectPath(ctx, x, y, mw + 12, h + 12, 16); ctx.fill();
+          ctx.drawImage(mark, x + 6, y + 6, mw, h);
+          tx = x + mw + 12 + 18;
+        }
+        ctx.fillStyle = "#ffffff"; ctx.font = "800 " + Math.round(h * 0.56) + "px " + sans;
+        ctx.fillText(brand, tx, y + 6 + h / 2 + h * 0.2);
       }
-      if (tfs < L.fsMin) { tfs = L.fsMin; ctx.font = "800 " + tfs + "px " + sans; tl = wrapLines(ctx, titleTxt, innerW, L.lines); }
-      var tlh = Math.round(tfs * 1.18), termTxt = tripShort(offer) ? "· " + tripShort(offer) : "";
-      var unitTxt = priceUnit(offer), priceTxt = formatPrice(offer.currentPrice, offer.currency);
-      var pct0 = discountPercent(offer.originalPrice, offer.currentPrice);
-      var gap = Math.round(L.priceFs * 0.28), priceH = Math.round(L.priceFs * 1.75);
-      var blockH = tl.length * tlh + (termTxt ? L.termFs * 1.5 + gap * 0.6 : 0) + gap + priceH + (L.btn ? gap + L.btnH : 0);
-      var top0 = L.y + Math.max(L.pad * 0.6, (L.h - L.pad * 0.6 - L.brandFs * 2.2 - blockH) / 2 + L.pad * 0.2);
-      if (mode === "story") top0 = L.y + L.pad * 0.9;
-      var y = top0;
-      ctx.fillStyle = NAVY; ctx.font = "800 " + tfs + "px " + sans;
-      tl.forEach(function (ln, i) { ctx.fillText(ln, x0, y + tfs * 0.92 + i * tlh); });
-      y += tl.length * tlh;
-      if (termTxt) { y += gap * 0.6; ctx.font = "600 " + L.termFs + "px " + sans; ctx.fillStyle = "rgba(11,26,48,0.78)"; ctx.fillText(termTxt, x0, y + L.termFs * 1.05); y += L.termFs * 1.5; }
-      y += gap;
-      // pole z ceną (granatowe, żółta cena) + "na osobę" obok
-      ctx.font = "800 " + L.priceFs + "px " + sans;
-      var pw1 = ctx.measureText(priceTxt).width, boxW = pw1 + L.priceFs * 0.9;
-      ctx.save(); shadowOn(ctx); ctx.fillStyle = NAVY; roundRectPath(ctx, x0, y, boxW, priceH, 26); ctx.fill(); ctx.restore();
-      ctx.fillStyle = "#ffd23f"; ctx.fillText(priceTxt, x0 + L.priceFs * 0.45, y + priceH / 2 + L.priceFs * 0.34);
-      var ux = x0 + boxW + 18;
-      if (unitTxt) { ctx.fillStyle = NAVY; ctx.font = "700 " + L.unitFs + "px " + sans; ctx.fillText(unitTxt, ux, y + priceH / 2 + L.unitFs * 0.34); ux += ctx.measureText(unitTxt).width + 14; }
-      if (pct0 > 0 && ux + 130 < x0 + innerW + 20) {
-        var pf = Math.round(L.unitFs * 0.95); ctx.font = "800 " + pf + "px " + sans;
-        var dtx = "-" + pct0 + "%", dw = ctx.measureText(dtx).width + pf * 0.9;
-        if (ux + dw <= L.x + L.w - L.pad + 10) { ctx.fillStyle = "#ff2d4f"; roundRectPath(ctx, ux, y + priceH / 2 - pf * 0.8, dw, pf * 1.6, pf * 0.8); ctx.fill(); ctx.fillStyle = "#fff"; ctx.fillText(dtx, ux + pf * 0.45, y + priceH / 2 + pf * 0.34); }
+      ctx.textBaseline = "alphabetic";
+
+      // One ad layout for all formats: vivid photo, headline banner on top, discount burst,
+      // destination, big price and a call to action. Little text, strong colours.
+      var C = {
+        og:    { banner: 168, maxLines: 2, fs0: 62, fsMin: 38, padX: 40, brandH: 64, burst: [W - 112, 168 + 112, 92, 74, 46], pillH: 68, pillFs: 34, destY: H - 262, priceFs: 82, priceH: 136, priceY: H - 176, cta: "ZOBACZ OFERTĘ  ›", ctaFs: 42, ctaH: 96, ctaY: H - 150, titleTop: 0 },
+        ig:    { banner: 270, maxLines: 3, fs0: 76, fsMin: 44, padX: 48, brandH: 76, burst: [W - 140, 270 + 160, 118, 94, 58], pillH: 84, pillFs: 42, destY: H - 400, priceFs: 104, priceH: 168, priceY: H - 300, cta: "LINK W BIO  ›", ctaFs: 46, ctaH: 110, ctaY: H - 272, titleTop: 0 },
+        story: { banner: 450, maxLines: 3, fs0: 78, fsMin: 46, padX: 56, brandH: 76, burst: [W - 150, 450 + 170, 118, 94, 58], pillH: 84, pillFs: 42, destY: H - 640, priceFs: 112, priceH: 180, priceY: H - 530, cta: "", ctaFs: 0, ctaH: 0, ctaY: 0, titleTop: 150 }
+      }[mode];
+      var padX = C.padX, bannerH = C.banner;
+      function shadowOn(c) { c.shadowColor = "rgba(0,0,0,0.38)"; c.shadowBlur = 18; c.shadowOffsetY = 6; }
+      // top banner with the headline (brand row is not on the banner, so nothing covers the text)
+      var bg1 = ctx.createLinearGradient(0, 0, W, 0);
+      bg1.addColorStop(0, "#ffb02e"); bg1.addColorStop(1, "#ff7a00");
+      ctx.save(); shadowOn(ctx); ctx.fillStyle = bg1; ctx.fillRect(0, 0, W, bannerH); ctx.restore();
+      ctx.fillStyle = "#0b1a30"; ctx.fillRect(0, bannerH, W, 8);
+      var tw = W - padX * 2, tfs = C.fs0, tl;
+      for (; tfs >= C.fsMin; tfs -= 4) {
+        ctx.font = "800 " + tfs + "px " + sans; tl = wrapLines(ctx, offer.title || "", tw, C.maxLines);
+        if (tl.length <= C.maxLines && tl.length * Math.round(tfs * 1.16) <= bannerH - C.titleTop - 40 && !/…$/.test(tl[tl.length - 1] || "") && tl.every(function (l) { return ctx.measureText(l).width <= tw; })) break;
       }
-      y += priceH;
-      // przycisk "Zobacz ofertę" (Stories: wygląd naklejki z linkiem)
-      if (L.btn) {
-        y += gap; ctx.font = "800 " + L.btnFs + "px " + sans;
-        var btxt = mode === "ig" ? "Zobacz ofertę →  (link w bio)" : "Zobacz ofertę →", bw = ctx.measureText(btxt).width + L.btnFs * 1.8;
-        var bgx = ctx.createLinearGradient(x0, 0, x0 + bw, 0); bgx.addColorStop(0, "#0a56d6"); bgx.addColorStop(1, "#1a7bff");
-        ctx.save(); shadowOn(ctx); ctx.fillStyle = bgx; roundRectPath(ctx, x0, y, bw, L.btnH, L.btnH / 2); ctx.fill(); ctx.restore();
-        ctx.fillStyle = "#fff"; ctx.fillText(btxt, x0 + L.btnFs * 0.9, y + L.btnH / 2 + L.btnFs * 0.35);
+      if (tfs < C.fsMin) { tfs = C.fsMin; ctx.font = "800 " + tfs + "px " + sans; tl = wrapLines(ctx, offer.title || "", tw, C.maxLines); }
+      var lh2 = Math.round(tfs * 1.16), area = bannerH - C.titleTop;
+      var ty = C.titleTop + (area - (tl.length - 1) * lh2) / 2 + tfs * 0.36;
+      ctx.fillStyle = "#0b1a30";
+      tl.forEach(function (ln, i) { ctx.fillText(ln, padX, ty + i * lh2); });
+      // small brand row under the banner (over the photo)
+      var bry = bannerH + 28, bh = C.brandH;
+      ctx.save(); shadowOn(ctx);
+      if (mark) {
+        var bmw = bh * mark.width / mark.height;
+        ctx.fillStyle = "#ffffff"; roundRectPath(ctx, padX, bry, bmw + 12, bh + 12, 16); ctx.fill();
+        ctx.drawImage(mark, padX + 6, bry + 6, bmw, bh);
+        ctx.font = "800 " + Math.round(bh * 0.46) + "px " + sans; ctx.fillStyle = "#ffffff";
+        ctx.fillText(brand, padX + bmw + 12 + 16, bry + 6 + bh / 2 + bh * 0.16);
       } else {
-        var sw = 760, sh = 108, sx = (W - sw) / 2, sy = H - 270;
-        ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ffffff"; roundRectPath(ctx, sx, sy, sw, sh, 54); ctx.fill(); ctx.restore();
-        drawPin(ctx, sx + 46, sy + 28, 52, "#ff2d4f");
-        ctx.fillStyle = NAVY; ctx.font = "800 42px " + sans; ctx.fillText("Zobacz ofertę", sx + 120, sy + 69);
-        ctx.fillStyle = "#1a6fd4"; ctx.fillText("→", sx + sw - 96, sy + 69);
+        ctx.font = "800 " + Math.round(bh * 0.46) + "px " + sans; ctx.fillStyle = "#ffffff";
+        ctx.fillText(brand, padX, bry + bh / 2 + 8);
       }
-      // marka (mały znak + nazwa) na dole panelu
-      var bfs = L.brandFs, by0 = L.y + L.h - L.pad * 0.55 - (mode === "story" ? 40 : 0);
-      if (mode !== "story") {
-        ctx.font = "700 " + bfs + "px " + sans; ctx.fillStyle = "rgba(11,26,48,0.75)";
-        var bx0 = x0;
-        if (mark) { var mh = bfs * 1.5, mw2 = mh * mark.width / mark.height; ctx.drawImage(mark, bx0, by0 - mh * 0.78, mw2, mh); bx0 += mw2 + 10; }
-        ctx.fillText(brand, bx0, by0);
+      ctx.restore();
+      // discount burst
+      var pct0 = discountPercent(offer.originalPrice, offer.currentPrice);
+      if (pct0 > 0) {
+        var bx = C.burst[0], by = C.burst[1], R1 = C.burst[2], R2 = C.burst[3], pts = 18;
+        ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ff2d4f"; ctx.beginPath();
+        for (var k = 0; k < pts * 2; k++) { var rr = k % 2 ? R2 : R1, an = Math.PI * k / pts - Math.PI / 2; ctx.lineTo(bx + rr * Math.cos(an), by + rr * Math.sin(an)); }
+        ctx.closePath(); ctx.fill(); ctx.restore();
+        ctx.fillStyle = "#ffffff"; ctx.font = "800 " + C.burst[4] + "px " + sans; ctx.textAlign = "center";
+        ctx.fillText("-" + pct0 + "%", bx, by + C.burst[4] * 0.34); ctx.textAlign = "left";
+      }
+      // destination pill
+      if (offer.destination) {
+        var dtxt = String(offer.destination).toUpperCase().slice(0, 30), ph0 = C.pillH;
+        ctx.font = "800 " + C.pillFs + "px " + sans;
+        var dw = ctx.measureText(dtxt).width + ph0 * 1.5;
+        ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ffffff"; roundRectPath(ctx, padX, C.destY, dw, ph0, ph0 / 2); ctx.fill(); ctx.restore();
+        drawPin(ctx, padX + ph0 * 0.32, C.destY + ph0 * 0.2, ph0 * 0.6, "#ff2d4f");
+        ctx.fillStyle = "#0a2a5e"; ctx.fillText(dtxt, padX + ph0 * 1.1, C.destY + ph0 * 0.68);
+      }
+      // big price badge
+      var unitTxt = (function () { var pc = pricingOf(offer); if (!pc) return ""; if (pc.headline === "person") return "/ os."; if (pc.headline === "total" && pc.people > 1) return "/ " + pc.people + " os."; return ""; })();
+      var ufs = Math.round(C.priceFs * 0.42), ugap = C.priceFs * 0.18;
+      ctx.font = "800 " + C.priceFs + "px " + sans;
+      var pw1 = ctx.measureText(priceTxt).width;
+      ctx.font = "700 " + ufs + "px " + sans;
+      var uw = unitTxt ? ctx.measureText(unitTxt).width + ugap : 0;
+      var pw = pw1 + uw + C.priceFs * 0.9;
+      ctx.save(); shadowOn(ctx); ctx.fillStyle = "#0b1a30"; roundRectPath(ctx, padX, C.priceY, pw, C.priceH, 30); ctx.fill(); ctx.restore();
+      ctx.fillStyle = "#ffd23f";
+      ctx.font = "800 " + C.priceFs + "px " + sans;
+      ctx.fillText(priceTxt, padX + C.priceFs * 0.45, C.priceY + C.priceH / 2 + C.priceFs * 0.35);
+      if (unitTxt) { ctx.font = "700 " + ufs + "px " + sans; ctx.fillText(unitTxt, padX + C.priceFs * 0.45 + pw1 + ugap, C.priceY + C.priceH / 2 + C.priceFs * 0.35); }
+      // call to action (feed formats); Stories get the link-sticker look-alike instead
+      if (C.cta) {
+        ctx.font = "800 " + C.ctaFs + "px " + sans;
+        var cw = ctx.measureText(C.cta).width + C.ctaFs * 1.8;
+        var cg = ctx.createLinearGradient(W - padX - cw, 0, W - padX, 0);
+        cg.addColorStop(0, "#0a56d6"); cg.addColorStop(1, "#1a7bff");
+        ctx.save(); shadowOn(ctx); ctx.fillStyle = cg; roundRectPath(ctx, W - padX - cw, C.ctaY, cw, C.ctaH, C.ctaH / 2); ctx.fill(); ctx.restore();
+        ctx.fillStyle = "#ffffff"; ctx.fillText(C.cta, W - padX - cw + C.ctaFs * 0.9, C.ctaY + C.ctaH / 2 + C.ctaFs * 0.35);
+      } else {
+        // link-sticker look-alike: the real "Link" sticker is placed over it in Instagram
+        var sw = 700, sh = 104, sx = (W - sw) / 2, sy = H - 330;
+        ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ffffff"; roundRectPath(ctx, sx, sy, sw, sh, 52); ctx.fill(); ctx.restore();
+        drawPin(ctx, sx + 44, sy + 26, 52, "#ff2d4f");
+        ctx.fillStyle = "#0b1a30"; ctx.font = "800 40px " + sans; ctx.fillText("Zobacz ofertę", sx + 116, sy + 66);
+        ctx.fillStyle = "#1a6fd4"; ctx.fillText("→", sx + sw - 90, sy + 66);
       }
       return canvas.toDataURL("image/jpeg", 0.88);
     });
