@@ -474,8 +474,10 @@
     ".social-links{display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center}",
     ".social-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:44px;height:44px;padding:0 14px;border-radius:999px;color:#fff;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 8px 20px -10px rgba(0,0,0,.6);transition:transform .15s ease}",
     ".social-btn:hover{transform:translateY(-2px)}.social-btn:focus-visible{outline:3px solid #ffd166;outline-offset:2px}",
-    ".social-btn.fb{background:#1877f2}.social-btn.ig{background:linear-gradient(45deg,#f9a03c 0%,#e1306c 52%,#833ab4 100%)}",
+    ".social-btn.fb{background:#1877f2}.social-btn.tt{background:#111;box-shadow:inset 0 0 0 2px #25f4ee}.social-btn.ig{background:linear-gradient(45deg,#f9a03c 0%,#e1306c 52%,#833ab4 100%)}",
     "footer.site .social-btn{min-width:38px;height:38px;padding:0;width:38px;box-shadow:none}footer.site .social-btn svg{width:19px;height:19px}",
+    ".extra-item{margin-bottom:18px}.extra-heading{margin:0 0 8px;font-size:18px;font-weight:800;color:var(--ink,#0b1a30);display:flex;align-items:center;gap:6px;flex-wrap:wrap}.extra-heading em{font-style:normal;font-weight:600;opacity:.8}",
+    ".extra-row .ex-btn-label{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--ink-dim)}.extra-row .ex-btn-label input{width:auto;margin-top:3px}",
     ".foot-social{display:inline-flex}",
     ".ff-badge{display:inline-block;background:#0b2447;color:#ffd166;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;margin-left:4px}",
     ".ff-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}",
@@ -1416,7 +1418,7 @@
     var out = [];
     if (offer.links && offer.links.length) {
       offer.links.forEach(function (l) {
-        if (l && l.url) out.push({ type: LINK_TYPES[l.type] ? l.type : "other", label: l.label || "", url: l.url });
+        if (l && l.url) { var lk = { type: LINK_TYPES[l.type] ? l.type : "other", label: l.label || "", url: l.url }; if (l.auto) lk.auto = true; out.push(lk); }
       });
     }
     if (!out.length && offer.affiliateUrl) {
@@ -1800,6 +1802,14 @@
     holiday: { label: "Wczasy", icon: "🏖️", aPh: "Biuro podróży / hotel", bPh: "Kierunek, standard, wyżywienie", unit: "za osobę", cta: "Zobacz wczasy" }
   };
   var EXTRA_ORDER = ["flight", "hotel", "car", "holiday"];
+  var EXTRA_LINK_TYPE = { flight: "flights", hotel: "hotel", car: "car", holiday: "other" };
+  // napis na przycisku powstaje z pól propozycji: "Lot: Warszawa → Tokio", "Nocleg: Hotel X"
+  function extraButtonLabel(x) {
+    var t = EXTRA_TYPES[x.type] || EXTRA_TYPES.flight;
+    if (x.title) return x.title;
+    if (x.type === "flight") return (x.a || x.b) ? t.label + ": " + (x.a || "?") + " → " + (x.b || "?") : "";
+    return x.a ? t.label + ": " + x.a : "";
+  }
 
   function pricingRowHtml(x) {
     x = x || {};
@@ -1908,7 +1918,9 @@
         '<input class="ex-price" type="number" min="0" step="1" placeholder="Cena" value="' + escapeHtml(x.price === undefined || x.price === null ? "" : x.price) + '">' +
         '<input class="ex-unit" placeholder="' + escapeHtml(t.unit) + '" value="' + escapeHtml(x.unit || "") + '">' +
         '<input class="ex-note" placeholder="Terminy / szczegóły (opcjonalnie)" value="' + escapeHtml(x.note || "") + '">' +
-        '<input class="ex-url" placeholder="Link afiliacyjny do strony partnera https://…" value="' + escapeHtml(x.url || "") + '">' +
+        '<input class="ex-title" placeholder="Tytuł nad zdjęciem (opcjonalnie, np. „Etihad z Warszawy”) — domyślnie: ' + escapeHtml(t.label) + ' 1, ' + escapeHtml(t.label) + ' 2…" value="' + escapeHtml(x.title || "") + '">' +
+        '<input class="ex-url" placeholder="Link afiliacyjny (wpisujesz raz — działa i pod zdjęciem, i jako przycisk) https://…" value="' + escapeHtml(x.url || "") + '">' +
+        '<label class="ex-btn-label"><input type="checkbox" class="ex-btn"' + (x.btn ? " checked" : "") + '> Pokaż ten link także jako przycisk przy ofercie (napis powstanie sam z pól „skąd → dokąd”)</label>' +
         '<div class="ex-shotbox"><label>Zrzut ekranu tej propozycji (np. Skyscanner, Booking, Trip) — kliknięcie w niego przeniesie na link powyżej</label>' +
           '<div class="paste-zone ex-paste" tabindex="0">📋 Kliknij tutaj i wciśnij <b>Ctrl+V</b>, aby wkleić zrzut ekranu<br><span>albo wybierz plik:</span> <input type="file" class="ex-file" accept="image/*"></div>' +
           '<div class="ex-shot">' + (x.shot ? '<img src="' + escapeHtml(x.shot) + '" alt=""><button type="button" class="btn ghost small ex-shot-remove">Usuń zrzut</button>' : "") + "</div>" +
@@ -1922,11 +1934,24 @@
   function extrasSectionHtml(offer) {
     var list = (offer.extras || []).filter(function (x) { return x && x.url && EXTRA_TYPES[x.type]; });
     if (!list.length) return "";
-    list.sort(function (p, q) { return EXTRA_ORDER.indexOf(p.type) - EXTRA_ORDER.indexOf(q.type); });
+    list = list.map(function (x, i) { return { x: x, i: i }; });
+    list.sort(function (p, q) { return (EXTRA_ORDER.indexOf(p.x.type) - EXTRA_ORDER.indexOf(q.x.type)) || (p.i - q.i); });
+    list = list.map(function (w) { return w.x; });
+    var perType = {}, seenType = {};
+    list.forEach(function (x) { perType[x.type] = (perType[x.type] || 0) + 1; });
     return (
       '<div class="extras-section"><h2>Zaplanuj całą podróż</h2><div class="extras-list">' +
       list.map(function (x) {
         var t = EXTRA_TYPES[x.type];
+        seenType[x.type] = (seenType[x.type] || 0) + 1;
+        var heading = '<h3 class="extra-heading"><span>' + t.icon + "</span> " + escapeHtml(t.label) + (perType[x.type] > 1 ? " " + seenType[x.type] : "") + (x.title ? ' <em>— ' + escapeHtml(x.title) + "</em>" : "") + "</h3>";
+        return '<div class="extra-item">' + heading + extraCardHtml(x, t, offer) + "</div>";
+      }).join("") +
+      "</div></div>"
+    );
+  }
+  function extraCardHtml(x, t, offer) {
+    {
         var title = x.type === "flight"
           ? ((x.a || x.b) ? escapeHtml(x.a || "?") + " → " + escapeHtml(x.b || "?") : "Oferta lotu")
           : escapeHtml(x.a || t.label);
@@ -1956,9 +1981,7 @@
             '<span class="btn primary small">' + t.cta + " →</span>" +
           "</a>"
         );
-      }).join("") +
-      "</div></div>"
-    );
+    }
   }
 
   function categoryOptionsHtml(selected) {
@@ -2008,7 +2031,7 @@
             '<div id="imgPreview" style="margin-top:6px">' + imagePreviewHtml() + "</div>" +
             '<span style="font-size:11.5px;color:var(--ink-dim)">Wgrane zdjęcie jest zmniejszane i zapisywane w stronie — zawsze się wyświetli. Linki do zdjęć z innych stron mogą być blokowane; wtedy pokazujemy ilustrację.</span></div>' +
           '<div class="field"><label>Linki afiliacyjne * (pierwszy to główny przycisk)</label>' +
-            '<div id="linksBox">' + (draft.links && draft.links.length ? draft.links : [{ type: CATEGORY_DEFAULT_LINK[draft.category] || "other", label: "", url: "" }]).map(linkRowHtml).join("") + "</div>" +
+            '<div id="linksBox">' + (function (m) { return m.length ? m : [{ type: CATEGORY_DEFAULT_LINK[draft.category] || "other", label: "", url: "" }]; })((draft.links || []).filter(function (l) { return l && !l.auto; })).map(linkRowHtml).join("") + "</div>" +
             '<button type="button" class="btn ghost small" id="addLinkBtn" style="align-self:flex-start;margin-top:6px">+ Dodaj kolejny link (np. nocleg, auto)</button></div>' +
           '<div class="field"><label>Propozycje pod ofertą: loty, nocleg, auto, wczasy z biura podróży (zrzut ekranu lub dane + link afiliacyjny)</label>' +
             '<div id="extrasBox">' + (draft.extras || []).map(extraRowHtml).join("") + "</div>" +
@@ -2687,7 +2710,7 @@
     return lines;
   }
 
-  function ogKeyOf(o) { return [o.title, o.currentPrice, o.currency, o.destination, o.image, o.createdAt, "brand-gorilla-4"].join("|"); }
+  function ogKeyOf(o) { return [o.title, o.currentPrice, o.currency, o.destination, o.image, o.createdAt, "split-v12",tripShort(o),JSON.stringify(o.pricing||null)].join("|"); }
 
   var CARD_SIZES = { og: [1200, 630], ig: [1080, 1350], story: [1080, 1920] };
 
@@ -2725,112 +2748,84 @@
       return loadImage("/logo-mark.png").catch(function () { return null; }).then(function (mk) { return [bg, mk]; });
     }).then(function (pair) {
       var bg = pair[0], mark = pair[1];
-      var sc = Math.max(W / bg.width, H / bg.height), w = bg.width * sc, h = bg.height * sc;
-      if ("filter" in ctx) ctx.filter = "saturate(1.3) contrast(1.07) brightness(1.03)"; // brighter, punchier colours (ignored where unsupported)
-      ctx.drawImage(bg, (W - w) / 2, (H - h) / 2, w, h);
-      if ("filter" in ctx) ctx.filter = "none";
-      var priceTxt = formatPrice(offer.currentPrice, offer.currency);
+      var sans = "Poppins, 'Segoe UI', Arial, sans-serif";
       var brand = state.siteName || BRAND;
-      var sans = "Poppins, 'Segoe UI', Arial, sans-serif", serif = sans, mono = sans;
-      // logo badge (white tile with the gorilla) + site name
-      function drawBrand(x, y, h) {
-        var tx = x;
-        if (mark) {
-          var mw = h * mark.width / mark.height;
-          ctx.fillStyle = "#ffffff"; roundRectPath(ctx, x, y, mw + 12, h + 12, 16); ctx.fill();
-          ctx.drawImage(mark, x + 6, y + 6, mw, h);
-          tx = x + mw + 12 + 18;
-        }
-        ctx.fillStyle = "#ffffff"; ctx.font = "800 " + Math.round(h * 0.56) + "px " + sans;
-        ctx.fillText(brand, tx, y + 6 + h / 2 + h * 0.2);
-      }
       ctx.textBaseline = "alphabetic";
-
-      // One ad layout for all formats: vivid photo, headline banner on top, discount burst,
-      // destination, big price and a call to action. Little text, strong colours.
-      var C = {
-        og:    { banner: 168, maxLines: 2, fs0: 62, fsMin: 38, padX: 40, brandH: 64, burst: [W - 112, 168 + 112, 92, 74, 46], pillH: 68, pillFs: 34, destY: H - 262, priceFs: 82, priceH: 136, priceY: H - 176, cta: "ZOBACZ OFERTĘ  ›", ctaFs: 42, ctaH: 96, ctaY: H - 150, titleTop: 0 },
-        ig:    { banner: 270, maxLines: 3, fs0: 76, fsMin: 44, padX: 48, brandH: 76, burst: [W - 140, 270 + 160, 118, 94, 58], pillH: 84, pillFs: 42, destY: H - 400, priceFs: 104, priceH: 168, priceY: H - 300, cta: "LINK W BIO  ›", ctaFs: 46, ctaH: 110, ctaY: H - 272, titleTop: 0 },
-        story: { banner: 450, maxLines: 3, fs0: 78, fsMin: 46, padX: 56, brandH: 76, burst: [W - 150, 450 + 170, 118, 94, 58], pillH: 84, pillFs: 42, destY: H - 640, priceFs: 112, priceH: 180, priceY: H - 530, cta: "", ctaFs: 0, ctaH: 0, ctaY: 0, titleTop: 150 }
+      // Układ "zdjęcie + panel": zdjęcie osobno (nic go nie zasłania), obok / pod nim panel z tytułem, terminem, ceną i przyciskiem.
+      var L = {
+        og:    { px: 0, py: 0, pw: 700, ph: 630, x: 700, y: 0, w: 500, h: 630, pad: 42, fs0: 46, fsMin: 30, lines: 4, termFs: 25, priceFs: 58, unitFs: 26, btn: true, btnH: 72, btnFs: 30, brandFs: 22 },
+        ig:    { px: 0, py: 0, pw: 1080, ph: 630, x: 0, y: 630, w: 1080, h: 720, pad: 56, fs0: 66, fsMin: 40, lines: 3, termFs: 32, priceFs: 84, unitFs: 36, btn: true, btnH: 96, btnFs: 40, brandFs: 26 },
+        story: { px: 0, py: 0, pw: 1080, ph: 960, x: 0, y: 960, w: 1080, h: 960, pad: 60, fs0: 72, fsMin: 44, lines: 3, termFs: 36, priceFs: 96, unitFs: 40, btn: false, btnH: 104, btnFs: 40, brandFs: 28 }
       }[mode];
-      var padX = C.padX, bannerH = C.banner;
-      function shadowOn(c) { c.shadowColor = "rgba(0,0,0,0.38)"; c.shadowBlur = 18; c.shadowOffsetY = 6; }
-      // top banner with the headline (brand row is not on the banner, so nothing covers the text)
-      var bg1 = ctx.createLinearGradient(0, 0, W, 0);
-      bg1.addColorStop(0, "#0a56d6"); bg1.addColorStop(1, "#0fb7e8");
-      ctx.save(); shadowOn(ctx); ctx.fillStyle = bg1; ctx.fillRect(0, 0, W, bannerH); ctx.restore();
-      ctx.fillStyle = "#ffc21a"; ctx.fillRect(0, bannerH, W, 10);
-      var tw = W - padX * 2, tfs = C.fs0, tl;
-      for (; tfs >= C.fsMin; tfs -= 4) {
-        ctx.font = "800 " + tfs + "px " + sans; tl = wrapLines(ctx, offer.title || "", tw, C.maxLines);
-        if (tl.length <= C.maxLines && tl.length * Math.round(tfs * 1.16) <= bannerH - C.titleTop - 40 && !/…$/.test(tl[tl.length - 1] || "") && tl.every(function (l) { return ctx.measureText(l).width <= tw; })) break;
-      }
-      if (tfs < C.fsMin) { tfs = C.fsMin; ctx.font = "800 " + tfs + "px " + sans; tl = wrapLines(ctx, offer.title || "", tw, C.maxLines); }
-      var lh2 = Math.round(tfs * 1.16), area = bannerH - C.titleTop;
-      var ty = C.titleTop + (area - (tl.length - 1) * lh2) / 2 + tfs * 0.36;
-      ctx.fillStyle = "#ffffff";
-      tl.forEach(function (ln, i) { ctx.fillText(ln, padX, ty + i * lh2); });
-      // small brand row under the banner (over the photo)
-      var bry = bannerH + 28, bh = C.brandH;
-      ctx.save(); shadowOn(ctx);
-      if (mark) {
-        var bmw = bh * mark.width / mark.height;
-        ctx.fillStyle = "#ffffff"; roundRectPath(ctx, padX, bry, bmw + 12, bh + 12, 16); ctx.fill();
-        ctx.drawImage(mark, padX + 6, bry + 6, bmw, bh);
-        ctx.font = "800 " + Math.round(bh * 0.46) + "px " + sans; ctx.fillStyle = "#ffffff";
-        ctx.fillText(brand, padX + bmw + 12 + 16, bry + 6 + bh / 2 + bh * 0.16);
-      } else {
-        ctx.font = "800 " + Math.round(bh * 0.46) + "px " + sans; ctx.fillStyle = "#ffffff";
-        ctx.fillText(brand, padX, bry + bh / 2 + 8);
-      }
+      function shadowOn(c) { c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 16; c.shadowOffsetY = 5; }
+      // zdjęcie (cover) w swoim prostokącie
+      ctx.save(); ctx.beginPath(); ctx.rect(L.px, L.py, L.pw, L.ph); ctx.clip();
+      var sc = Math.max(L.pw / bg.width, L.ph / bg.height), w = bg.width * sc, h = bg.height * sc;
+      if ("filter" in ctx) ctx.filter = "saturate(1.25) contrast(1.05) brightness(1.03)";
+      ctx.drawImage(bg, L.px + (L.pw - w) / 2, L.py + (L.ph - h) / 2, w, h);
+      if ("filter" in ctx) ctx.filter = "none";
       ctx.restore();
-      // discount burst
+      // panel w kolorze strony
+      var pg = ctx.createLinearGradient(L.x, L.y, L.x + L.w, L.y + L.h);
+      pg.addColorStop(0, "#ffb02e"); pg.addColorStop(1, "#ff7a00");
+      ctx.fillStyle = pg; ctx.fillRect(L.x, L.y, L.w, L.h);
+      if (mode === "ig") { ctx.fillStyle = "#ffc21a"; ctx.fillRect(0, L.y - 8, W, 8); }
+      if (mode === "story") { ctx.fillStyle = "#ffc21a"; ctx.fillRect(0, L.y - 8, W, 8); }
+      var NAVY = "#0b1a30", innerW = L.w - L.pad * 2, x0 = L.x + L.pad;
+      // tytuł (dopasowany do wolnego miejsca)
+      var tl, tfs, titleTxt = String(offer.title || "");
+      for (tfs = L.fs0; tfs >= L.fsMin; tfs -= 2) {
+        ctx.font = "800 " + tfs + "px " + sans; tl = wrapLines(ctx, titleTxt, innerW, L.lines);
+        if (tl.length <= L.lines && !/…$/.test(tl[tl.length - 1] || "") && tl.every(function (l) { return ctx.measureText(l).width <= innerW; })) break;
+      }
+      if (tfs < L.fsMin) { tfs = L.fsMin; ctx.font = "800 " + tfs + "px " + sans; tl = wrapLines(ctx, titleTxt, innerW, L.lines); }
+      var tlh = Math.round(tfs * 1.18), termTxt = tripShort(offer) ? "· " + tripShort(offer) : "";
+      var unitTxt = priceUnit(offer), priceTxt = formatPrice(offer.currentPrice, offer.currency);
       var pct0 = discountPercent(offer.originalPrice, offer.currentPrice);
-      if (pct0 > 0) {
-        var bx = C.burst[0], by = C.burst[1], R1 = C.burst[2], R2 = C.burst[3], pts = 18;
-        ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ff2d4f"; ctx.beginPath();
-        for (var k = 0; k < pts * 2; k++) { var rr = k % 2 ? R2 : R1, an = Math.PI * k / pts - Math.PI / 2; ctx.lineTo(bx + rr * Math.cos(an), by + rr * Math.sin(an)); }
-        ctx.closePath(); ctx.fill(); ctx.restore();
-        ctx.fillStyle = "#ffffff"; ctx.font = "800 " + C.burst[4] + "px " + sans; ctx.textAlign = "center";
-        ctx.fillText("-" + pct0 + "%", bx, by + C.burst[4] * 0.34); ctx.textAlign = "left";
+      var gap = Math.round(L.priceFs * 0.28), priceH = Math.round(L.priceFs * 1.75);
+      var blockH = tl.length * tlh + (termTxt ? L.termFs * 1.5 + gap * 0.6 : 0) + gap + priceH + (L.btn ? gap + L.btnH : 0);
+      var top0 = L.y + Math.max(L.pad * 0.6, (L.h - L.pad * 0.6 - L.brandFs * 2.2 - blockH) / 2 + L.pad * 0.2);
+      if (mode === "story") top0 = L.y + L.pad * 0.9;
+      var y = top0;
+      ctx.fillStyle = NAVY; ctx.font = "800 " + tfs + "px " + sans;
+      tl.forEach(function (ln, i) { ctx.fillText(ln, x0, y + tfs * 0.92 + i * tlh); });
+      y += tl.length * tlh;
+      if (termTxt) { y += gap * 0.6; ctx.font = "600 " + L.termFs + "px " + sans; ctx.fillStyle = "rgba(11,26,48,0.78)"; ctx.fillText(termTxt, x0, y + L.termFs * 1.05); y += L.termFs * 1.5; }
+      y += gap;
+      // pole z ceną (granatowe, żółta cena) + "na osobę" obok
+      ctx.font = "800 " + L.priceFs + "px " + sans;
+      var pw1 = ctx.measureText(priceTxt).width, boxW = pw1 + L.priceFs * 0.9;
+      ctx.save(); shadowOn(ctx); ctx.fillStyle = NAVY; roundRectPath(ctx, x0, y, boxW, priceH, 26); ctx.fill(); ctx.restore();
+      ctx.fillStyle = "#ffd23f"; ctx.fillText(priceTxt, x0 + L.priceFs * 0.45, y + priceH / 2 + L.priceFs * 0.34);
+      var ux = x0 + boxW + 18;
+      if (unitTxt) { ctx.fillStyle = NAVY; ctx.font = "700 " + L.unitFs + "px " + sans; ctx.fillText(unitTxt, ux, y + priceH / 2 + L.unitFs * 0.34); ux += ctx.measureText(unitTxt).width + 14; }
+      if (pct0 > 0 && ux + 130 < x0 + innerW + 20) {
+        var pf = Math.round(L.unitFs * 0.95); ctx.font = "800 " + pf + "px " + sans;
+        var dtx = "-" + pct0 + "%", dw = ctx.measureText(dtx).width + pf * 0.9;
+        if (ux + dw <= L.x + L.w - L.pad + 10) { ctx.fillStyle = "#ff2d4f"; roundRectPath(ctx, ux, y + priceH / 2 - pf * 0.8, dw, pf * 1.6, pf * 0.8); ctx.fill(); ctx.fillStyle = "#fff"; ctx.fillText(dtx, ux + pf * 0.45, y + priceH / 2 + pf * 0.34); }
       }
-      // destination pill
-      if (offer.destination) {
-        var dtxt = String(offer.destination).toUpperCase().slice(0, 30), ph0 = C.pillH;
-        ctx.font = "800 " + C.pillFs + "px " + sans;
-        var dw = ctx.measureText(dtxt).width + ph0 * 1.5;
-        ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ffffff"; roundRectPath(ctx, padX, C.destY, dw, ph0, ph0 / 2); ctx.fill(); ctx.restore();
-        drawPin(ctx, padX + ph0 * 0.32, C.destY + ph0 * 0.2, ph0 * 0.6, "#ff2d4f");
-        ctx.fillStyle = "#0a2a5e"; ctx.fillText(dtxt, padX + ph0 * 1.1, C.destY + ph0 * 0.68);
-      }
-      // big price badge
-      var unitTxt = (function () { var pc = pricingOf(offer); if (!pc) return ""; if (pc.headline === "person") return "/ os."; if (pc.headline === "total" && pc.people > 1) return "/ " + pc.people + " os."; return ""; })();
-      var ufs = Math.round(C.priceFs * 0.42), ugap = C.priceFs * 0.18;
-      ctx.font = "800 " + C.priceFs + "px " + sans;
-      var pw1 = ctx.measureText(priceTxt).width;
-      ctx.font = "700 " + ufs + "px " + sans;
-      var uw = unitTxt ? ctx.measureText(unitTxt).width + ugap : 0;
-      var pw = pw1 + uw + C.priceFs * 0.9;
-      ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ffc21a"; roundRectPath(ctx, padX, C.priceY, pw, C.priceH, 30); ctx.fill(); ctx.restore();
-      ctx.fillStyle = "#0b1a30";
-      ctx.font = "800 " + C.priceFs + "px " + sans;
-      ctx.fillText(priceTxt, padX + C.priceFs * 0.45, C.priceY + C.priceH / 2 + C.priceFs * 0.35);
-      if (unitTxt) { ctx.font = "700 " + ufs + "px " + sans; ctx.fillText(unitTxt, padX + C.priceFs * 0.45 + pw1 + ugap, C.priceY + C.priceH / 2 + C.priceFs * 0.35); }
-      // call to action (feed formats); Stories get the link-sticker look-alike instead
-      if (C.cta) {
-        ctx.font = "800 " + C.ctaFs + "px " + sans;
-        var cw = ctx.measureText(C.cta).width + C.ctaFs * 1.8;
-        var cg = ctx.createLinearGradient(W - padX - cw, 0, W - padX, 0);
-        cg.addColorStop(0, "#ff7a00"); cg.addColorStop(1, "#ff2d4f");
-        ctx.save(); shadowOn(ctx); ctx.fillStyle = cg; roundRectPath(ctx, W - padX - cw, C.ctaY, cw, C.ctaH, C.ctaH / 2); ctx.fill(); ctx.restore();
-        ctx.fillStyle = "#ffffff"; ctx.fillText(C.cta, W - padX - cw + C.ctaFs * 0.9, C.ctaY + C.ctaH / 2 + C.ctaFs * 0.35);
+      y += priceH;
+      // przycisk "Zobacz ofertę" (Stories: wygląd naklejki z linkiem)
+      if (L.btn) {
+        y += gap; ctx.font = "800 " + L.btnFs + "px " + sans;
+        var btxt = mode === "ig" ? "Zobacz ofertę →  (link w bio)" : "Zobacz ofertę →", bw = ctx.measureText(btxt).width + L.btnFs * 1.8;
+        var bgx = ctx.createLinearGradient(x0, 0, x0 + bw, 0); bgx.addColorStop(0, "#0a56d6"); bgx.addColorStop(1, "#1a7bff");
+        ctx.save(); shadowOn(ctx); ctx.fillStyle = bgx; roundRectPath(ctx, x0, y, bw, L.btnH, L.btnH / 2); ctx.fill(); ctx.restore();
+        ctx.fillStyle = "#fff"; ctx.fillText(btxt, x0 + L.btnFs * 0.9, y + L.btnH / 2 + L.btnFs * 0.35);
       } else {
-        // link-sticker look-alike: the real "Link" sticker is placed over it in Instagram
-        var sw = 700, sh = 104, sx = (W - sw) / 2, sy = H - 330;
-        ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ffffff"; roundRectPath(ctx, sx, sy, sw, sh, 52); ctx.fill(); ctx.restore();
-        drawPin(ctx, sx + 44, sy + 26, 52, "#ff2d4f");
-        ctx.fillStyle = "#0b1a30"; ctx.font = "800 40px " + sans; ctx.fillText("Zobacz ofertę", sx + 116, sy + 66);
-        ctx.fillStyle = "#1a6fd4"; ctx.fillText("→", sx + sw - 90, sy + 66);
+        var sw = 760, sh = 108, sx = (W - sw) / 2, sy = H - 270;
+        ctx.save(); shadowOn(ctx); ctx.fillStyle = "#ffffff"; roundRectPath(ctx, sx, sy, sw, sh, 54); ctx.fill(); ctx.restore();
+        drawPin(ctx, sx + 46, sy + 28, 52, "#ff2d4f");
+        ctx.fillStyle = NAVY; ctx.font = "800 42px " + sans; ctx.fillText("Zobacz ofertę", sx + 120, sy + 69);
+        ctx.fillStyle = "#1a6fd4"; ctx.fillText("→", sx + sw - 96, sy + 69);
+      }
+      // marka (mały znak + nazwa) na dole panelu
+      var bfs = L.brandFs, by0 = L.y + L.h - L.pad * 0.55 - (mode === "story" ? 40 : 0);
+      if (mode !== "story") {
+        ctx.font = "700 " + bfs + "px " + sans; ctx.fillStyle = "rgba(11,26,48,0.75)";
+        var bx0 = x0;
+        if (mark) { var mh = bfs * 1.5, mw2 = mh * mark.width / mark.height; ctx.drawImage(mark, bx0, by0 - mh * 0.78, mw2, mh); bx0 += mw2 + 10; }
+        ctx.fillText(brand, bx0, by0);
       }
       return canvas.toDataURL("image/jpeg", 0.88);
     });
@@ -3134,14 +3129,17 @@
 
   var SOCIAL = {
     facebook: "https://www.facebook.com/profile.php?id=61595431185711",
-    instagram: "https://www.instagram.com/latajzgorylem.pl/"
+    instagram: "https://www.instagram.com/latajzgorylem.pl/",
+    tiktok: "" /* wklej tu adres profilu TikTok, np. https://www.tiktok.com/@latajzgorylem.pl — ikona pojawi się sama */
   };
+  var ICON_TT = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.6 6.7a5.6 5.6 0 0 1-3.4-1.9A5.6 5.6 0 0 1 14.9 1h-3.3v13.6a2.9 2.9 0 1 1-2-2.8V8.4a6.2 6.2 0 1 0 5.3 6.2V8.9a8.9 8.9 0 0 0 4.7 1.5z"/></svg>';
   var ICON_FB = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 12.073C24 5.446 18.627.073 12 .073S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>';
   var ICON_IG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.25" fill="currentColor"/></svg>';
   function socialIconsHtml(withText) {
     return '<span class="social-links">' +
       '<a class="social-btn fb" href="' + SOCIAL.facebook + '" target="_blank" rel="noopener" aria-label="Facebook — ' + escapeHtml(BRAND) + '" title="Facebook">' + ICON_FB + (withText ? "<span>Facebook</span>" : "") + "</a>" +
       '<a class="social-btn ig" href="' + SOCIAL.instagram + '" target="_blank" rel="noopener" aria-label="Instagram — ' + escapeHtml(BRAND) + '" title="Instagram">' + ICON_IG + (withText ? "<span>Instagram</span>" : "") + "</a>" +
+      (/^https:\/\//.test(SOCIAL.tiktok) ? '<a class="social-btn tt" href="' + SOCIAL.tiktok + '" target="_blank" rel="noopener" aria-label="TikTok — ' + escapeHtml(BRAND) + '" title="TikTok">' + ICON_TT + (withText ? "<span>TikTok</span>" : "") + "</a>" : "") +
     "</span>";
   }
   function subscribeBoxHtml() {
@@ -3253,11 +3251,6 @@
       });
       if (!title) { formMsg("err", "Podaj tytuł oferty."); return; }
       if (isNaN(currentPrice) || currentPrice < 0) { formMsg("err", "Podaj poprawną cenę."); return; }
-      if (!links.length) { formMsg("err", "Dodaj przynajmniej jeden link afiliacyjny."); return; }
-      for (var li = 0; li < links.length; li++) {
-        if (!/^https?:\/\//i.test(links[li].url)) { formMsg("err", "Każdy link musi zaczynać się od http:// lub https://"); return; }
-      }
-      var affiliateUrl = links[0].url;
       var extras = [];
       var extrasOk = true;
       qsa(".extra-row").forEach(function (row) {
@@ -3267,8 +3260,12 @@
           b: qs(".ex-b", row).value.trim(),
           unit: qs(".ex-unit", row).value.trim(),
           note: qs(".ex-note", row).value.trim(),
-          url: qs(".ex-url", row).value.trim()
+          url: qs(".ex-url", row).value.trim(),
+          title: qs(".ex-title", row).value.trim(),
+          btn: qs(".ex-btn", row).checked
         };
+        if (!x.title) delete x.title;
+        if (!x.btn) delete x.btn;
         var priceRaw = qs(".ex-price", row).value;
         if (priceRaw !== "") x.price = parseFloat(priceRaw);
         var shotImg = qs(".ex-shot img", row);
@@ -3278,6 +3275,13 @@
         extras.push(x);
       });
       if (!extrasOk) { formMsg("err", "Każda propozycja (lot, nocleg, auto) musi mieć link zaczynający się od http:// lub https://"); return; }
+      // przyciski wygenerowane z propozycji (jeden link wpisany raz) — dopisujemy je za ręcznymi linkami
+      extras.forEach(function (x) { if (x.btn && x.url) links.push({ type: EXTRA_LINK_TYPE[x.type] || "other", label: extraButtonLabel(x), url: x.url, auto: true }); });
+      if (!links.length) { formMsg("err", "Dodaj przynajmniej jeden link afiliacyjny."); return; }
+      for (var li = 0; li < links.length; li++) {
+        if (!/^https?:\/\//i.test(links[li].url)) { formMsg("err", "Każdy link musi zaczynać się od http:// lub https://"); return; }
+      }
+      var affiliateUrl = links[0].url;
 
       var terms = [], termsOk = true;
       qsa("#termsBox .term-row").forEach(function (row) {
@@ -3384,7 +3388,7 @@
     qsa("[data-add-extra]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var tmp = document.createElement("div");
-        tmp.innerHTML = extraRowHtml({ type: btn.getAttribute("data-add-extra") });
+        tmp.innerHTML = extraRowHtml({ type: btn.getAttribute("data-add-extra"), btn: true });
         byId("extrasBox").appendChild(tmp.firstChild);
       });
     });
