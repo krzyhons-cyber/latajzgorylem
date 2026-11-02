@@ -1732,6 +1732,7 @@
   // uploaded file, resized in the browser and stored as a data: URI
   // (the only kind of image this sandboxed page is guaranteed to display).
   var draftImage = "";
+  var draftIgImage = "";
 
   // Optional: turn a plain partner link (e.g. Trip.com) into my Travelpayouts affiliate link (Edge Function "flights", action "convert")
   function isAlreadyPartnerLink(u) { return /(^|\.)(tp\.media|tpk\.lv|tp\.st|c\d+\.travelpayouts\.com|travelpayouts\.com)(\/|$)/i.test(String(u).replace(/^https?:\/\//i, "")); }
@@ -1769,6 +1770,12 @@
     if (!draftImage) return '<span style="font-size:12px;color:var(--ink-dim)">Brak zdjęcia — użyjemy automatycznej ilustracji.</span>';
     return '<img src="' + escapeHtml(draftImage) + '" alt="" style="max-width:160px;max-height:110px;border-radius:8px;display:block">' +
       '<button type="button" class="btn ghost small" id="removeImageBtn" style="margin-top:6px">Usuń zdjęcie</button>';
+  }
+
+  function igPreviewHtml() {
+    if (!draftIgImage) return '<span style="font-size:12px;color:var(--ink-dim)">Brak — użyjemy głównego zdjęcia oferty.</span>';
+    return '<img src="' + escapeHtml(draftIgImage) + '" alt="" style="max-width:110px;max-height:195px;border-radius:8px;display:block">' +
+      '<button type="button" class="btn ghost small" id="removeIgImageBtn" style="margin-top:6px">Usuń (wróć do głównego zdjęcia)</button>';
   }
 
   function readAndShrinkImage(file, cb, maxWidth, quality) {
@@ -2030,6 +2037,11 @@
             '<input id="f_image" value="' + escapeHtml(draft.image && draft.image.indexOf("data:") !== 0 ? draft.image : "") + '" placeholder="…albo wklej link do zdjęcia https://…">' +
             '<div id="imgPreview" style="margin-top:6px">' + imagePreviewHtml() + "</div>" +
             '<span style="font-size:11.5px;color:var(--ink-dim)">Wgrane zdjęcie jest zmniejszane i zapisywane w stronie — zawsze się wyświetli. Linki do zdjęć z innych stron mogą być blokowane; wtedy pokazujemy ilustrację.</span></div>' +
+          '<div class="field ig-photo-field"><label for="f_igFile">Zdjęcie na Instagram i Stories (opcjonalnie, najlepiej pionowe 9:16)</label>' +
+            '<input id="f_igFile" type="file" accept="image/*">' +
+            '<input id="f_igImage" value="' + escapeHtml(draft.igImage && draft.igImage.indexOf("data:") !== 0 ? draft.igImage : "") + '" placeholder="…albo wklej link do zdjęcia https://…">' +
+            '<div id="igImgPreview" style="margin-top:6px">' + igPreviewHtml() + "</div>" +
+            '<span style="font-size:11.5px;color:var(--ink-dim)">Puste pole = grafiki na Instagram i Stories powstają z głównego zdjęcia oferty. Facebook zawsze używa głównego zdjęcia.</span></div>' +
           '<div class="field"><label>Linki afiliacyjne * (pierwszy to główny przycisk)</label>' +
             '<div id="linksBox">' + (function (m) { return m.length ? m : [{ type: CATEGORY_DEFAULT_LINK[draft.category] || "other", label: "", url: "" }]; })((draft.links || []).filter(function (l) { return l && !l.auto; })).map(linkRowHtml).join("") + "</div>" +
             '<button type="button" class="btn ghost small" id="addLinkBtn" style="align-self:flex-start;margin-top:6px">+ Dodaj kolejny link (np. nocleg, auto)</button></div>' +
@@ -2173,6 +2185,7 @@
       } else adminDuplicateSlug = null;
     }
     draftImage = draft.image || "";
+    draftIgImage = draft.igImage || "";
     var flash = adminFlash;
     adminFlash = null;
 
@@ -2734,7 +2747,7 @@
     var canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     var ctx = canvas.getContext("2d");
-    var photo = /^https?:\/\//i.test(offer.image || "") ? offer.image : "";
+    var photo = (function () { var u = (mode !== "og" && /^https?:\/\//i.test(offer.igImage || "")) ? offer.igImage : offer.image; return /^https?:\/\//i.test(u || "") ? u : ""; })();
     var fonts = (document.fonts && document.fonts.load)
       ? Promise.race([Promise.all([document.fonts.load("700 56px Poppins"), document.fonts.load("500 30px Poppins")]), new Promise(function (r) { setTimeout(r, 1200); })])
       : Promise.resolve();
@@ -2910,12 +2923,32 @@
         (offer.ogImage ? '<a class="btn ghost small" target="_blank" rel="noopener" href="' + escapeHtml(offer.ogImage) + '">Otwórz miniaturkę</a>' : "") +
       "</div>" +
       '<div class="ig-box"><h4>📸 Instagram i Stories</h4>' +
+        '<div class="ig-own"><label class="cap-label">Inne zdjęcie dla Instagrama (pionowe 9:16) <input type="file" class="ig-own-file" accept="image/*"></label>' +
+          (offer.igImage ? '<img class="ig-own-thumb" src="' + escapeHtml(offer.igImage) + '" alt="" style="height:90px;border-radius:8px;margin-left:8px"> <button type="button" class="btn ghost small ig-own-remove">Wróć do głównego zdjęcia</button>' : '<span class="hint">Domyślnie używamy głównego zdjęcia oferty.</span>') + "</div>" +
         '<div class="ig-previews" id="igPrev-' + escapeHtml(slug) + '"><span class="hint">Przygotowuję obrazy 1080×1350 i 1080×1920…</span></div>' +
         '<p class="promo-note">Instagram nie pozwala klikać linków w opisie — w poście wybierz wariant „Instagram”, a link do oferty znajdzie się na stronie <b>' +
         escapeHtml(bioUrl) + '</b> (wpisz ją raz w profilu jako „link w bio”). W Stories dodaj naklejkę „Link” z adresem: <b>' + escapeHtml(withUtm(shareUrl, "instagram", "story")) + "</b>.</p>" +
         '<div class="promo-actions"><button type="button" class="btn ghost small" data-copy-text="' + escapeHtml(bioUrl) + '">Kopiuj link w bio</button>' +
         '<button type="button" class="btn ghost small" data-copy-text="' + escapeHtml(withUtm(shareUrl, "instagram", "story")) + '">Kopiuj link do Stories</button></div>' +
       "</div>";
+
+    function saveIgImage(url) {
+      var rec = JSON.parse(JSON.stringify(offer));
+      if (url) rec.igImage = url; else delete rec.igImage;
+      panel.innerHTML = '<p class="hint">Zapisuję i przygotowuję nowe grafiki…</p>';
+      SB.upsertOffer(rec).then(function () {}, function () {}).then(function () {
+        var st = state.offers.find(function (x) { return x.slug === rec.slug; });
+        if (st) { if (url) st.igImage = url; else delete st.igImage; }
+        showPromoPanel(panel, rec);
+      });
+    }
+    var ownFile = qs(".ig-own-file", panel), ownRm = qs(".ig-own-remove", panel);
+    if (ownFile) ownFile.addEventListener("change", function () {
+      var f = ownFile.files && ownFile.files[0];
+      if (!f || !/^image\//.test(f.type)) return;
+      readAndShrinkImage(f, function (u) { if (u) saveIgImage(u); }, 1400, 0.85);
+    });
+    if (ownRm) ownRm.addEventListener("click", function () { saveIgImage(""); });
 
     var sel = qs(".cap-variant", panel), ta = qs(".cap-text", panel);
     sel.addEventListener("change", function () {
@@ -3341,6 +3374,7 @@
         currentPrice: currentPrice,
         currency: byId("f_currency").value,
         image: draftImage,
+        igImage: draftIgImage || undefined,
         affiliateUrl: affiliateUrl,
         links: links,
         extras: extras,
@@ -3509,6 +3543,23 @@
         byId("formMsg").innerHTML = "";
         refreshPreview();
       });
+    });
+
+    function refreshIgPreview() {
+      byId("igImgPreview").innerHTML = igPreviewHtml();
+      var rm = byId("removeIgImageBtn");
+      if (rm) rm.addEventListener("click", function () { draftIgImage = ""; byId("f_igImage").value = ""; byId("f_igFile").value = ""; refreshIgPreview(); });
+    }
+    refreshIgPreview();
+    byId("f_igImage").addEventListener("input", function () { draftIgImage = byId("f_igImage").value.trim(); refreshIgPreview(); });
+    byId("f_igFile").addEventListener("change", function () {
+      var file = byId("f_igFile").files && byId("f_igFile").files[0];
+      if (!file) return;
+      if (!/^image\//.test(file.type)) { formMsg("err", "Wybierz plik graficzny (JPG, PNG, WebP)."); return; }
+      readAndShrinkImage(file, function (dataUrl) {
+        if (!dataUrl) { formMsg("err", "Nie udało się wczytać zdjęcia. Spróbuj innego pliku."); return; }
+        draftIgImage = dataUrl; byId("f_igImage").value = ""; byId("formMsg").innerHTML = ""; refreshIgPreview();
+      }, 1400, 0.85);
     });
 
     var settingsForm = byId("settingsForm");
