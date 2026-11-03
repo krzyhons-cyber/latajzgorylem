@@ -1418,11 +1418,11 @@
     var out = [];
     if (offer.links && offer.links.length) {
       offer.links.forEach(function (l) {
-        if (l && l.url) { var lk = { type: LINK_TYPES[l.type] ? l.type : "other", label: l.label || "", url: l.url }; if (l.auto) lk.auto = true; out.push(lk); }
+        if (l && l.url) { var lk = { type: LINK_TYPES[l.type] ? l.type : "other", label: l.label || "", url: tdConvert(l.url) || l.url }; if (l.auto) lk.auto = true; out.push(lk); }
       });
     }
     if (!out.length && offer.affiliateUrl) {
-      out.push({ type: CATEGORY_DEFAULT_LINK[offer.category] || "other", label: "", url: offer.affiliateUrl });
+      out.push({ type: CATEGORY_DEFAULT_LINK[offer.category] || "other", label: "", url: tdConvert(offer.affiliateUrl) || offer.affiliateUrl });
     }
     return out;
   }
@@ -1735,11 +1735,37 @@
   var draftIgImage = "";
 
   // Optional: turn a plain partner link (e.g. Trip.com) into my Travelpayouts affiliate link (Edge Function "flights", action "convert")
-  function isAlreadyPartnerLink(u) { return /(^|\.)(tp\.media|tpk\.lv|tp\.st|c\d+\.travelpayouts\.com|travelpayouts\.com)(\/|$)/i.test(String(u).replace(/^https?:\/\//i, "")); }
+  function isAlreadyPartnerLink(u) { return /(^|\.)(tp\.media|tpk\.lv|tp\.st|c\d+\.travelpayouts\.com|travelpayouts\.com|clk\.tradedoubler\.com|tradedoubler\.com)(\/|$)/i.test(String(u).replace(/^https?:\/\//i, "")); }
+  // ---- Tradedoubler: linki do wybranych sklepów (np. exim.pl) zamieniamy na link śledzący, bez żadnego API ----
+  // Ustawienia (Admin → Ustawienia): tdSiteId = ID Twojej strony (a), tdRules = linie "domena;ID programu;ID reklamy (opcjonalnie)".
+  var TD_DEFAULT_SITE = "3506385", TD_DEFAULT_RULES = "exim.pl;334260\neximtours.pl;334260";
+  function tdRules() {
+    var st = state.settings || {};
+    return String(st.tdRules || TD_DEFAULT_RULES).split(/\n+/).map(function (l) {
+      var p = l.split(/[;,\t]/).map(function (x) { return x.trim(); });
+      return p[0] && /^\d+$/.test(p[1] || "") ? { domain: p[0].toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, ""), program: p[1], ad: /^\d+$/.test(p[2] || "") ? p[2] : "" } : null;
+    }).filter(Boolean);
+  }
+  function tdConvert(url) {
+    url = String(url || "").trim();
+    var st = state.settings || {};
+    if (!/^https?:\/\//i.test(url) || !/^\d+$/.test(String(st.tdSiteId || TD_DEFAULT_SITE).trim()) || isAlreadyPartnerLink(url)) return null;
+    var host = url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/[\/?#].*$/, "").toLowerCase();
+    var rules = tdRules();
+    for (var i = 0; i < rules.length; i++) {
+      var d = rules[i].domain;
+      if (host === d || host.slice(-(d.length + 1)) === "." + d) {
+        return "https://clk.tradedoubler.com/click?p=" + rules[i].program + "&a=" + String(st.tdSiteId || TD_DEFAULT_SITE).trim() + (rules[i].ad ? "&g=" + rules[i].ad : "") + "&url=" + encodeURIComponent(url);
+      }
+    }
+    return null;
+  }
   function convertAffiliateLink(url, subId) {
     url = String(url || "").trim();
     if (!/^https?:\/\//i.test(url)) return Promise.reject(new Error("Najpierw wklej pełny link (https://…) do oferty."));
     if (isAlreadyPartnerLink(url)) return Promise.resolve(url);
+    var tdl = tdConvert(url);
+    if (tdl) return Promise.resolve(tdl);
     return SB.callFn("flights", { action: "convert", url: url, sub_id: subId || undefined }).then(function (r) {
       if (!r || !r.partner_url) throw new Error("Brak linku w odpowiedzi Travelpayouts.");
       return r.partner_url;
@@ -1968,7 +1994,7 @@
           : "";
         if (x.shot) {
           return (
-            '<a class="extra-card extra-shot-card" target="_blank" rel="noopener sponsored" href="' + escapeHtml(x.url) + '">' +
+            '<a class="extra-card extra-shot-card" target="_blank" rel="noopener sponsored" href="' + escapeHtml(tdConvert(x.url) || x.url) + '">' +
               '<div class="extra-shot"><img src="' + escapeHtml(x.shot) + '" alt="' + escapeHtml(t.label + ": " + title.replace(/<[^>]*>/g, "")) + '"></div>' +
               '<div class="extra-shot-bar">' +
                 '<div class="extra-main"><div class="xsell-kicker">' + t.icon + " " + t.label + "</div><b>" + title + "</b>" +
@@ -1980,7 +2006,7 @@
           );
         }
         return (
-          '<a class="extra-card"target="_blank" rel="noopener sponsored" href="' + escapeHtml(x.url) + '">' +
+          '<a class="extra-card"target="_blank" rel="noopener sponsored" href="' + escapeHtml(tdConvert(x.url) || x.url) + '">' +
             '<div class="xsell-icon">' + t.icon + "</div>" +
             '<div class="extra-main"><div class="xsell-kicker">' + t.label + "</div><b>" + title + "</b>" +
               (sub ? "<span>" + escapeHtml(sub) + "</span>" : "") + "</div>" +
@@ -2122,6 +2148,10 @@
             '<div class="field"><label for="s_hotelLabel">Partner — noclegi</label><input id="s_hotelLabel" value="' + escapeHtml(s.defaultHotelLabel || "") + '" placeholder="np. Booking.com"></div>' +
             '<div class="field"><label for="s_hotelUrl">Link afiliacyjny</label><input id="s_hotelUrl" value="' + escapeHtml(s.defaultHotelUrl || "") + '" placeholder="https://…"></div>' +
           "</div>" +
+          '<h3 style="font-size:15px;margin:18px 0 4px">Tradedoubler — automatyczna zamiana linków</h3>' +
+          '<p style="font-size:12.5px;color:var(--ink-dim);margin:0 0 10px">Wklejasz zwykły link do sklepu (np. z exim.pl), a strona sama zamienia go na Twój link Tradedoubler — przy zapisie oferty oraz po kliknięciu „🔗 Travelpayouts”. ID strony i ID programu znajdziesz w panelu Tradedoubler (Programy → Exim Tours; Zasoby → Strony).</p>' +
+          '<div class="field"><label for="s_tdSite">ID Twojej strony w Tradedoubler (parametr a)</label><input id="s_tdSite" inputmode="numeric" value="' + escapeHtml(s.tdSiteId || TD_DEFAULT_SITE) + '" placeholder="np. 1234567"></div>' +
+          '<div class="field"><label for="s_tdRules">Programy: po jednej linii „domena;ID programu;ID reklamy (opcjonalnie)”</label><textarea id="s_tdRules" rows="3" placeholder="exim.pl;12345&#10;eximtours.pl;12345">' + escapeHtml(s.tdRules || TD_DEFAULT_RULES) + "</textarea></div>" +
           '<div class="field"><label for="s_contact">E-mail kontaktowy (pokazywany w polityce prywatności)</label><input id="s_contact" type="email" value="' + escapeHtml(s.contactEmail || "") + '" placeholder="kontakt@twojadomena.pl"></div>' +
           '<div class="form-actions"><button type="submit" class="btn primary">Zapisz ustawienia</button></div>' +
         "</form>" +
@@ -2414,6 +2444,7 @@
       var typeKey = byId("q_type").value, t = QUICK_TYPES[typeKey];
       var dest = byId("q_dest").value.trim();
       var url = byId("q_url").value.trim();
+      var tdq = tdConvert(url); if (tdq) { url = tdq; byId("q_url").value = tdq; }
       var price = parseFloat(byId("q_price").value);
       var qPricing = readPricing("qp");
       if (qPricing && qPricing.headline !== "manual") { var qpc = computePricing(qPricing); price = Math.round(qPricing.headline === "total" ? qpc.total : qpc.perPerson); }
@@ -3308,7 +3339,7 @@
       qsa(".link-row").forEach(function (row) {
         var url = qs(".lr-url", row).value.trim();
         if (!url) return;
-        links.push({ type: qs(".lr-type", row).value, label: qs(".lr-label", row).value.trim(), url: url });
+        links.push({ type: qs(".lr-type", row).value, label: qs(".lr-label", row).value.trim(), url: tdConvert(url) || url });
       });
       if (!title) { formMsg("err", "Podaj tytuł oferty."); return; }
       if (isNaN(currentPrice) || currentPrice < 0) { formMsg("err", "Podaj poprawną cenę."); return; }
@@ -3321,7 +3352,7 @@
           b: qs(".ex-b", row).value.trim(),
           unit: qs(".ex-unit", row).value.trim(),
           note: qs(".ex-note", row).value.trim(),
-          url: qs(".ex-url", row).value.trim(),
+          url: (function (u) { return tdConvert(u) || u; })(qs(".ex-url", row).value.trim()),
           title: qs(".ex-title", row).value.trim(),
           btn: qs(".ex-btn", row).checked
         };
@@ -3571,8 +3602,11 @@
           defaultCarRentalUrl: byId("s_carUrl").value.trim(),
           defaultHotelLabel: byId("s_hotelLabel").value.trim(),
           defaultHotelUrl: byId("s_hotelUrl").value.trim(),
-          contactEmail: byId("s_contact").value.trim()
+          contactEmail: byId("s_contact").value.trim(),
+          tdSiteId: byId("s_tdSite").value.trim(),
+          tdRules: byId("s_tdRules").value.trim()
         };
+        if (newSettings.tdSiteId && !/^\d+$/.test(newSettings.tdSiteId)) { byId("settingsMsg").innerHTML = '<div class="msg err">ID strony Tradedoubler to same cyfry.</div>'; return; }
         var urlFields = [["defaultCarRentalUrl", newSettings.defaultCarRentalUrl], ["defaultHotelUrl", newSettings.defaultHotelUrl]];
         for (var i = 0; i < urlFields.length; i++) {
           var val = urlFields[i][1];
