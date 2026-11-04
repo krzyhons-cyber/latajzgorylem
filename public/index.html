@@ -902,6 +902,17 @@
     var t = DESC_TEMPLATES[key];
     return t ? t.text({ city: firstPart(o.destination) || "wybrany kierunek", price: formatPrice(o.currentPrice, o.currency) }) : "";
   }
+  // Opis wygenerowany przez AI (Edge Function "describe": ChatGPT lub Claude, klucz w Secrets Supabase)
+  function aiDescribe(info) {
+    if (!String(info.destination || "").trim()) return Promise.reject(new Error("Najpierw wpisz kierunek."));
+    return SB.callFn("describe", info).then(function (r) {
+      if (!r || !r.text) throw new Error("AI nie zwróciło opisu.");
+      return String(r.text);
+    }, function (err) {
+      if (err && err.status === 404) throw new Error("Funkcja „describe” nie jest wdrożona w Supabase — dodaj ją (INSTRUKCJA.md, „Opisy AI”).");
+      throw err;
+    });
+  }
   function templateOptionsHtml(first) {
     return '<option value="">' + first + "</option>" + Object.keys(DESC_TEMPLATES).map(function (k) { return '<option value="' + k + '">' + DESC_TEMPLATES[k].label + "</option>"; }).join("");
   }
@@ -2081,7 +2092,8 @@
             "</div></div>" +
           '<div class="field"><label for="f_tpl">Szablon opisu</label><div style="display:flex;gap:6px;flex-wrap:wrap">' +
             '<select id="f_tpl" style="flex:1;min-width:200px">' + templateOptionsHtml("— wybierz szablon —") + "</select>" +
-            '<button type="button" class="btn ghost small" id="f_tplBtn">Wstaw do opisu</button></div></div>' +
+            '<button type="button" class="btn ghost small" id="f_tplBtn">Wstaw do opisu</button>' +
+            '<button type="button" class="btn ghost small" id="f_aiBtn">✨ Wygeneruj opis (AI)</button></div></div>' +
           '<div class="field"><label for="f_description">Opis oferty</label><textarea id="f_description" placeholder="Co zawiera oferta, dlaczego warto…">' + escapeHtml(draft.description) + "</textarea></div>" +
           '<div class="field checkbox-field"><input type="checkbox" id="f_featured"' + (draft.featured ? " checked" : "") + "><label for='f_featured' style='font-size:13.5px;font-weight:500;color:var(--ink)'>Pokaż jako ofertę dnia na stronie głównej</label></div>" +
           '<div class="form-actions">' +
@@ -2365,7 +2377,9 @@
           '<div class="field"><label>Zrzut ekranu oferty (opcjonalnie) — kliknięcie w niego przeniesie na Twój link</label>' +
             '<div class="paste-zone" id="q_pasteZone" tabindex="0">📋 Kliknij tutaj i wciśnij <b>Ctrl+V</b>, aby wkleić zrzut ekranu<br><span>albo wybierz plik:</span> <input type="file" id="q_file" accept="image/*"></div>' +
             '<div class="q-shot" id="q_shot"></div></div>' +
-          '<div class="field"><label for="q_tpl">Opis oferty</label><select id="q_tpl">' + templateOptionsHtml("Automatyczny (krótki)") + "</select></div>" +
+          '<div class="field"><label for="q_tpl">Opis oferty</label><select id="q_tpl">' + templateOptionsHtml("Automatyczny (krótki)") + "</select>" +
+            '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><button type="button" class="btn ghost small" id="q_aiBtn">✨ Wygeneruj opis (AI)</button><span class="hint" id="q_aiHint">Na podstawie kierunku, ceny i terminu. Możesz go poprawić przed zapisem.</span></div>' +
+            '<textarea id="q_aiDesc" rows="4" hidden placeholder="Tu pojawi się opis wygenerowany przez AI — możesz go edytować. Puste = użyjemy szablonu z listy."></textarea></div>' +
           publishFieldsHtml("q", null) +
           '<div class="field checkbox-field"><input type="checkbox" id="q_featured"><label for="q_featured" style="font-size:13.5px;font-weight:500;color:var(--ink)">Pokaż jako ofertę dnia</label></div>' +
           '<div class="form-actions"><button type="submit" class="btn primary">Dodaj ofertę</button></div>' +
@@ -2439,6 +2453,20 @@
       to.min = this.value || "";
     });
 
+    byId("q_aiBtn").addEventListener("click", function () {
+      var btn = this, ta = byId("q_aiDesc"), hint = byId("q_aiHint"), cp = parseFloat(byId("q_price").value);
+      var typeKey = byId("q_type").value, old = btn.textContent;
+      btn.disabled = true; btn.textContent = "Generuję…"; hint.textContent = "";
+      aiDescribe({
+        destination: byId("q_dest").value.trim(), kind: String((QUICK_TYPES[typeKey] && QUICK_TYPES[typeKey].label) || "").replace(/^[^A-Za-zĄ-ż]+/, ""),
+        price: isNaN(cp) ? "" : formatPrice(cp, byId("q_cur").value), dates: tripShort({ dateFrom: byId("q_dateFrom").value, dateTo: byId("q_dateTo").value }),
+        notes: byId("q_from").value.trim() ? "Wylot z: " + byId("q_from").value.trim() : ""
+      }).then(function (text) {
+        ta.value = text; ta.hidden = false; btn.disabled = false; btn.textContent = old; hint.textContent = "Gotowe — popraw, jeśli chcesz. Opis zapisze się razem z ofertą.";
+      }, function (err) {
+        btn.disabled = false; btn.textContent = old; hint.textContent = ""; quickMsg("err", escapeHtml(err.message || "Nie udało się wygenerować opisu."));
+      });
+    });
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var typeKey = byId("q_type").value, t = QUICK_TYPES[typeKey];
@@ -2488,7 +2516,7 @@
         terms: quickTerms.slice(),
         pricing: qPricing,
         extras: quickShot ? [{ type: t.extra, a: info.from, b: city, price: price, url: url, shot: quickShot }] : [],
-        description: withTripLine(byId("q_tpl").value ? descTemplate(byId("q_tpl").value, { destination: dest, currentPrice: price, currency: cur }) : autoDescription(typeKey, info), byId("q_dateFrom").value, byId("q_dateTo").value),
+        description: withTripLine(byId("q_aiDesc").value.trim() ? byId("q_aiDesc").value.trim() : byId("q_tpl").value ? descTemplate(byId("q_tpl").value, { destination: dest, currentPrice: price, currency: cur }) : autoDescription(typeKey, info), byId("q_dateFrom").value, byId("q_dateTo").value),
         dateFrom: byId("q_dateFrom").value || "",
         dateTo: byId("q_dateTo").value || "",
         featured: byId("q_featured").checked,
@@ -3553,6 +3581,24 @@
     });
     byId("f_dateTo").addEventListener("change", syncTripLine);
     wirePublish("f");
+    byId("f_aiBtn").addEventListener("click", function () {
+      var btn = this, dest = byId("f_destination").value.trim() || byId("f_title").value.trim();
+      var d = byId("f_description");
+      var current = d.value.split("\n").filter(function (l) { return l.indexOf("🗓 Termin wyjazdu") !== 0; }).join("").trim();
+      if (current && !window.confirm("Zastąpić obecny opis opisem wygenerowanym przez AI?")) return;
+      var cp = parseFloat(byId("f_currentPrice").value);
+      var old = btn.textContent; btn.disabled = true; btn.textContent = "Generuję…";
+      aiDescribe({
+        destination: dest, title: byId("f_title").value.trim(), kind: CATEGORY_LABELS[byId("f_category").value] || "",
+        price: isNaN(cp) ? "" : formatPrice(cp, byId("f_currency").value), dates: tripShort({ dateFrom: byId("f_dateFrom").value, dateTo: byId("f_dateTo").value }),
+        notes: byId("f_provider").value.trim() ? "Partner: " + byId("f_provider").value.trim() : ""
+      }).then(function (text) {
+        d.value = withTripLine(text, byId("f_dateFrom").value, byId("f_dateTo").value);
+        byId("formMsg").innerHTML = ""; btn.disabled = false; btn.textContent = old;
+      }, function (err) {
+        btn.disabled = false; btn.textContent = old; formMsg("err", err.message || "Nie udało się wygenerować opisu.");
+      });
+    });
     byId("f_tplBtn").addEventListener("click", function () {
       var key = byId("f_tpl").value;
       if (!key) { formMsg("err", "Najpierw wybierz szablon z listy."); return; }
