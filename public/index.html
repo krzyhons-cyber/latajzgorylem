@@ -2645,6 +2645,78 @@
     return "Uzupełniono formularz poniżej (kierunek, cena, link, termin) — sprawdź i zapisz ofertę.";
   }
 
+
+  /* ---- Karta lotu: rysujemy własny „zrzut” wyniku lotu (godziny, trasa, czas, cena) i zapisujemy jako zdjęcie ---- */
+  var AIRLINES = { W6: "Wizz Air", FR: "Ryanair", LO: "LOT", LH: "Lufthansa", KL: "KLM", AF: "Air France", BA: "British Airways", U2: "easyJet", TK: "Turkish Airlines", VY: "Vueling", SK: "SAS", AZ: "ITA Airways", EW: "Eurowings", OS: "Austrian", SN: "Brussels Airlines", LX: "Swiss", IB: "Iberia", TP: "TAP Air Portugal", PC: "Pegasus", EK: "Emirates", QR: "Qatar Airways", EY: "Etihad", FZ: "flydubai", A3: "Aegean", HV: "Transavia", DY: "Norwegian", AY: "Finnair", UA: "United", DL: "Delta", AA: "American" };
+  function ffDur(min) {
+    min = Math.round(Number(min) || 0);
+    if (min <= 0) return "";
+    return Math.floor(min / 60) + "h " + (min % 60 < 10 ? "0" : "") + (min % 60) + "m";
+  }
+  function ffLongDate(iso) {
+    var d = new Date(String(iso || "").slice(0, 10) + "T12:00:00");
+    return isNaN(d.getTime()) ? "" : d.toLocaleDateString("pl-PL", { weekday: "short", day: "numeric", month: "short" });
+  }
+  function renderFlightCardDataUrl(r, ctx) {
+    var legs = [{ iso: r.departure_at, from: ctx.fromName, to: ctx.toName, fc: r.origin, tc: r.destination, dur: r.duration_to, st: r.transfers }];
+    if (r.return_at) legs.push({ iso: r.return_at, from: ctx.toName, to: ctx.fromName, fc: r.destination, tc: r.origin, dur: r.duration_back, st: r.return_transfers === undefined ? r.transfers : r.return_transfers });
+    var W = 1000, H = 170 + legs.length * 190, S = 2;
+    var cv = document.createElement("canvas"); cv.width = W * S; cv.height = H * S;
+    var c = cv.getContext("2d"); c.scale(S, S);
+    var F = "Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    c.fillStyle = "#ffffff"; c.fillRect(0, 0, W, H);
+    // nagłówek: cena
+    c.fillStyle = "#0b1b33"; c.font = "800 52px " + F; c.textBaseline = "alphabetic";
+    var price = formatPrice(r.price, r.currency || "PLN");
+    c.fillText(price, 36, 76);
+    var pw = c.measureText(price).width;
+    c.font = "600 22px " + F; c.fillStyle = "#5b6b80";
+    var air = AIRLINES[r.airline] || r.airline || "";
+    var tag = [air, "za osobę"].filter(Boolean).join(" · ");
+    c.fillText(tag, 36 + pw + 18, 74);
+    // plakietki
+    var chips = [r.transfers === 0 ? "Bez przesiadek" : (r.transfers ? r.transfers + " przesiadk" + (r.transfers === 1 ? "a" : "i") : ""), r.return_at ? "Lot w dwie strony" : "Lot w jedną stronę"].filter(Boolean);
+    var cx = 36;
+    chips.forEach(function (t, i) {
+      c.font = "600 20px " + F; var w = c.measureText(t).width + 28;
+      roundRectPath(c, cx, 100, w, 36, 18); c.fillStyle = i === 0 ? "#dbeafe" : "#eef1f5"; c.fill();
+      c.fillStyle = i === 0 ? "#1d4ed8" : "#3b4b61"; c.fillText(t, cx + 14, 125); cx += w + 10;
+    });
+    // loty
+    legs.forEach(function (L, i) {
+      var y = 170 + i * 190;
+      c.strokeStyle = "#e5e9ef"; c.lineWidth = 2; c.beginPath(); c.moveTo(36, y); c.lineTo(W - 36, y); c.stroke();
+      var t = /T(\d\d:\d\d)/.exec(String(L.iso || ""));
+      // lewa strona: godzina wylotu
+      c.fillStyle = "#0b1b33"; c.font = "800 46px " + F; c.textAlign = "left";
+      c.fillText(t ? t[1] : "—", 36, y + 62);
+      c.font = "600 24px " + F; c.fillStyle = "#3b4b61"; c.fillText(String(L.from || "").slice(0, 22), 36, y + 98);
+      c.font = "500 21px " + F; c.fillStyle = "#6b7a8f"; c.fillText(ffLongDate(L.iso), 36, y + 128);
+      // prawa strona: dokąd
+      c.textAlign = "right";
+      c.font = "800 46px " + F; c.fillStyle = "#0b1b33"; c.fillText(String(L.tc || ""), W - 36, y + 62);
+      c.font = "600 24px " + F; c.fillStyle = "#3b4b61"; c.fillText(String(L.to || "").slice(0, 22), W - 36, y + 98);
+      // środek: czas, linia, kody
+      c.textAlign = "center";
+      c.font = "500 21px " + F; c.fillStyle = "#6b7a8f";
+      var mid = "Czas lotu " + (ffDur(L.dur) || "—") + (L.st === 0 ? ", bez przesiadek" : (L.st ? ", przesiadki: " + L.st : ""));
+      c.fillText(mid, W / 2, y + 52);
+      c.fillStyle = "#d7dde6"; roundRectPath(c, 250, y + 70, W - 500, 8, 4); c.fill();
+      c.font = "700 20px " + F; c.fillStyle = "#2563eb";
+      c.textAlign = "left"; c.fillText(String(L.fc || ""), 250, y + 108);
+      c.textAlign = "right"; c.fillText(String(L.tc || ""), W - 250, y + 108);
+      c.textAlign = "left";
+    });
+    c.textAlign = "right"; c.font = "600 18px " + F; c.fillStyle = "#9aa6b6";
+    c.fillText("latajzgorylem.pl", W - 36, H - 16);
+    return cv.toDataURL("image/jpeg", 0.92);
+  }
+  function saveFlightCard(r, ctx) {
+    var dataUrl = renderFlightCardDataUrl(r, ctx);
+    if (!SB.enabled()) return Promise.resolve(dataUrl);
+    return SB.uploadDataUrl(dataUrl);
+  }
+
   function wireFlightFinder(P, fill, addTerm) {
     var $ = function (n) { return byId(P + "_" + n); };
     if (!$("go")) return;
@@ -2691,7 +2763,8 @@
         return '<div class="ff-row"><div><b class="mono">' + escapeHtml(formatPrice(r.price, r.currency || "PLN")) + "</b> · " + escapeHtml(when) + exact +
           (stay ? " · " + escapeHtml(stay) : "") + (r.airline ? " · " + escapeHtml(r.airline) : "") + (stops ? " · " + escapeHtml(stops) : "") + "</div>" +
           '<span class="ff-actions"><button type="button" class="btn primary small" data-ff-use="' + i + '">Użyj</button> ' +
-          '<button type="button" class="btn ghost small" data-ff-term="' + i + '" title="Dodaj jako dodatkowy dostępny termin">+ Termin</button></span></div>';
+          '<button type="button" class="btn ghost small" data-ff-term="' + i + '" title="Dodaj jako dodatkowy dostępny termin">+ Termin</button> ' +
+          '<button type="button" class="btn ghost small" data-ff-card="' + i + '" title="Narysuj kartę lotu (godziny, trasa, czas, cena) i dodaj ją jako zrzut ekranu">🖼 Dodaj kartę lotu</button></span></div>';
       }).join("") + (list.length > 1 ? '<div style="margin-top:8px"><button type="button" class="btn ghost small" data-ff-termall="1">+ Dodaj wszystkie jako terminy</button></div>' : "");
     }
 
@@ -2761,6 +2834,26 @@
         var picked = ta ? results.slice() : [results[parseInt(tb.getAttribute("data-ff-term"), 10)]];
         picked.forEach(function (r) { if (r) addTerm(r); });
         msg("ok", picked.length > 1 ? "Dodano " + pluralTerms(picked.length) + " do oferty." : "Dodano termin do oferty — widać go na liście terminów w formularzu.");
+        return;
+      }
+      var cb = e.target.closest("[data-ff-card]");
+      if (cb) {
+        var cr = results[parseInt(cb.getAttribute("data-ff-card"), 10)];
+        if (!cr) return;
+        var cctx = { fromName: ffName($("from").value).split(",")[0].trim(), toName: ffName($("to").value).split(",")[0].trim() };
+        var cold = cb.textContent; cb.disabled = true; cb.textContent = "Rysuję…";
+        saveFlightCard(cr, cctx).then(function (url) {
+          var note = fill(cr, { fromName: cctx.fromName, toName: ffName($("to").value) });
+          if (P === "ff") {
+            quickShot = url; byId("q_shot").innerHTML = shotHtml(url, "q-shot-remove");
+          } else {
+            var tmp = document.createElement("div");
+            tmp.innerHTML = extraRowHtml({ type: "flight", a: cctx.fromName, b: cctx.toName, price: Math.round(cr.price), unit: "za osobę", url: cr.url, shot: url, btn: true });
+            byId("extrasBox").appendChild(tmp.firstChild);
+          }
+          cb.textContent = "✔ Dodano kartę"; setTimeout(function () { cb.textContent = cold; cb.disabled = false; }, 2500);
+          msg("ok", "Karta lotu dodana jako zrzut ekranu" + (P === "ff" ? " (pole „Zrzut” w formularzu poniżej)" : " (nowa propozycja lotu w sekcji „Zaplanuj całą podróż”)") + ". " + (note || ""));
+        }, function () { cb.textContent = cold; cb.disabled = false; msg("err", "Nie udało się zapisać karty lotu. Spróbuj ponownie."); });
         return;
       }
       var b = e.target.closest("[data-ff-use]");
