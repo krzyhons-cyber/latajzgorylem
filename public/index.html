@@ -445,6 +445,15 @@
     ".added-box small{display:block;color:var(--ink-dim);margin-top:3px;font-size:12px}",
     ".quick-card{border-color:var(--accent)}",
     ".adv-box{margin:20px 0}",
+    ".main-box>summary{font-size:16px;color:#fff;background:rgba(255,255,255,.12);border-radius:12px;padding:12px 14px}.quick-box>summary{color:#fff;font-size:14px}.quick-box{margin-top:8px}",
+    ".req-box{position:sticky;top:6px;z-index:5;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:10px 12px;margin:0 0 14px;border-radius:12px;border:2px solid #f87171;background:#fef2f2;color:#7f1d1d;font-size:13.5px;box-shadow:0 4px 14px rgba(0,0,0,.12)}",
+    ".req-box.done{border-color:#4ade80;background:#f0fdf4;color:#14532d}.req-box .req-msg{font-weight:800;margin-right:4px}",
+    ".req-chip{font-weight:700;border-radius:999px;padding:3px 10px;background:#fff;border:1px solid #fca5a5}.req-chip.ok{border-color:#86efac;color:#15803d}.req-chip.bad{color:#b91c1c}",
+    ".req-field.req-bad>input,.req-field.req-bad>select,.req-field.req-bad .lr-url{border:2px solid #dc2626!important;background:#fff1f1!important}",
+    ".req-field.req-bad>label::after{content:' — wymagane';color:#dc2626;font-weight:800;font-size:12px}",
+    ".req-field.req-ok>input,.req-field.req-ok>select,.req-field.req-ok .lr-url:not(:placeholder-shown){border:2px solid #16a34a!important;background:#f0fdf4!important}",
+    ".req-field.req-ok>label::after{content:' ✓';color:#16a34a;font-weight:800}",
+    ".req-field.req-bad{border-left:4px solid #dc2626;padding-left:8px;border-radius:4px}.req-field.req-ok{border-left:4px solid #16a34a;padding-left:8px;border-radius:4px}",
     ".adv-box>summary{cursor:pointer;font-weight:700;font-size:14px;padding:10px 2px;color:var(--ink-dim)}",
     ".finder{border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin-bottom:16px}",
     ".finder>summary{cursor:pointer;font-weight:700;font-size:13.5px}",
@@ -490,6 +499,10 @@
     ".stat-line b{font-size:20px}",
     ".stat-line span{font-size:11.5px;color:var(--ink-dim)}",
     ".top-list{margin:0;padding-left:18px;font-size:13px}",
+    ".st-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}.st-bar select,.st-bar input{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 9px;font:inherit;font-size:13px;max-width:100%}",
+    ".stat-line small{font-size:11px;font-weight:700}.st-up{color:#15803d}.st-down{color:#b91c1c}",
+    ".st-chart{display:flex;align-items:flex-end;gap:2px;height:90px;margin:6px 0 2px;border-bottom:1px solid var(--line)}.st-col{flex:1;min-width:2px;height:100%;display:flex;align-items:flex-end}.st-col i{display:block;width:100%;background:var(--accent);border-radius:3px 3px 0 0;opacity:.85}.st-hours{height:50px}",
+    ".st-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim);margin-bottom:6px}",
     ".top-list li{display:flex;justify-content:space-between;gap:10px;padding:3px 0}",
     ".top-list li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
     ".sub-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}",
@@ -907,7 +920,9 @@
     if (!String(info.destination || "").trim()) return Promise.reject(new Error("Najpierw wpisz kierunek."));
     return SB.callFn("describe", info).then(function (r) {
       if (!r || !r.text) throw new Error("AI nie zwróciło opisu.");
-      return String(r.text);
+      var text = String(r.text).replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+      if (text.indexOf("\n\n") < 0 && text.indexOf("\n") >= 0) text = text.replace(/\n/g, "\n\n"); // każdy akapit osobno
+      return { text: text, title: String(r.title || "").trim() };
     }, function (err) {
       if (err && err.status === 404) throw new Error("Funkcja „describe” nie jest wdrożona w Supabase — dodaj ją (INSTRUKCJA.md, „Opisy AI”).");
       throw err;
@@ -1232,6 +1247,20 @@
       var since = new Date(Date.now() - 30 * 86400000).toISOString();
       return fresh().then(function () { return req("GET", "/rest/v1/events?select=kind,target&kind=eq.view&created_at=gte." + encodeURIComponent(since) + "&limit=10000"); });
     }
+    // Zdarzenia z zakresu dat (strony po 1000, bo Supabase ogranicza liczbę wierszy w jednym zapytaniu)
+    function loadEvents(fromIso, toIso) {
+      var all = [];
+      function page(n) {
+        var q = "/rest/v1/events?select=slug,kind,target,created_at&order=created_at.asc&limit=1000&offset=" + (n * 1000) +
+          (fromIso ? "&created_at=gte." + encodeURIComponent(fromIso) : "") + (toIso ? "&created_at=lt." + encodeURIComponent(toIso) : "");
+        return req("GET", q).then(function (rows) {
+          rows = rows || [];
+          all = all.concat(rows);
+          return rows.length >= 1000 && n < 40 ? page(n + 1) : all;
+        });
+      }
+      return fresh().then(function () { return page(0); });
+    }
     function loadSubscribers() {
       return fresh().then(function () { return req("GET", "/rest/v1/subscribers?select=id,email,created_at&order=created_at.desc&limit=2000"); });
     }
@@ -1261,7 +1290,7 @@
       });
     }
 
-    return { track: track, subscribe: subscribe, loadStats: loadStats, loadViewSources: loadViewSources, loadSubscribers: loadSubscribers, deleteSubscriber: deleteSubscriber, callFn: callFn,
+    return { track: track, subscribe: subscribe, loadStats: loadStats, loadViewSources: loadViewSources, loadEvents: loadEvents, loadSubscribers: loadSubscribers, deleteSubscriber: deleteSubscriber, callFn: callFn,
              enabled: enabled, isLoggedIn: isLoggedIn, login: login, logout: logout, loadAll: loadAll,
              upsertOffer: upsertOffer, deleteOffer: deleteOffer, saveSettings: saveSettings, uploadDataUrl: uploadDataUrl };
   })();
@@ -2062,6 +2091,7 @@
       '<div class="admin-card">' +
         "<h2 style='font-size:19px;margin-bottom:16px'>" + (adminEditingSlug ? "Edytuj ofertę" : (adminDuplicateSlug ? "Nowa oferta (kopia)" : "Pełny formularz oferty")) + "</h2>" +
         '<div id="formMsg"></div>' +
+        '<div class="req-box" id="f_reqBox"></div>' +
         flightFinderHtml("fa") +
         '<form id="offerForm">' +
           '<div class="field"><label for="f_title">Tytuł oferty *</label><input id="f_title" required value="' + escapeHtml(draft.title) + '" placeholder="np. Wczasy all inclusive na Krecie"></div>' +
@@ -2258,13 +2288,14 @@
     byId("view").innerHTML =
       '<div class="admin-grid"><div>' +
         (flash ? '<div class="msg ok">' + flash + "</div>" : "") +
-        (editing ? "" : renderQuickAdd()) +
-        '<details class="adv-box" id="advBox"' + (editing ? " open" : "") + "><summary>Pełny formularz (wszystkie pola)</summary>" + renderAdminForm(draft) + "</details>" +
+        '<details class="adv-box main-box" id="advBox" open><summary>' + (editing ? "✏️ Edycja oferty" : "➕ Dodaj ofertę — pełny formularz") + "</summary>" + renderAdminForm(draft) + "</details>" +
+        (editing ? "" : '<details class="adv-box quick-box" id="quickBox"><summary>⚡ Szybkie dodawanie oferty (opcjonalnie — kliknij, aby rozwinąć)</summary>' + renderQuickAdd() + "</details>") +
         renderSettingsForm() +
         renderSubscribersCard() +
       "</div><div>" + renderStatsCard() + renderAdminList() + "</div></div>";
     wireAdminEvents();
     wireQuickAdd();
+    wireRequiredFields();
     wireSubscribers();
     loadAdminStats();
   }
@@ -2369,6 +2400,7 @@
         "<h2 style='font-size:19px;margin:0 0 4px'>⚡ Szybkie dodawanie oferty</h2>" +
         '<p class="hint" style="margin:0 0 14px">Wypełnij kilka pól — tytuł, opis, kategoria i nazwa partnera uzupełnią się same. Wszystko możesz potem poprawić w pełnym formularzu.</p>' +
         '<div id="quickMsg"></div>' +
+        '<div class="req-box" id="q_reqBox"></div>' +
         flightFinderHtml("ff") +
         '<form id="quickForm">' +
           '<div class="two-col">' +
@@ -2404,6 +2436,7 @@
           '<div class="field"><label for="q_tpl">Opis oferty</label><select id="q_tpl">' + templateOptionsHtml("Automatyczny (krótki)") + "</select>" +
             '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><button type="button" class="btn ghost small" id="q_aiBtn">✨ Wygeneruj opis (AI)</button><span class="hint" id="q_aiHint">Na podstawie kierunku, ceny i terminu. Możesz go poprawić przed zapisem.</span></div>' +
             '<input id="q_aiNotes" style="margin-top:6px" placeholder="Wskazówki dla AI (opcjonalnie), np. podkreśl all inclusive, wylot z Pragi lub Berlina">' +
+            '<div id="q_aiTitleBox" class="field" hidden style="margin:8px 0 0"><label for="q_aiTitle">Tytuł oferty (z AI — możesz poprawić)</label><input id="q_aiTitle" maxlength="140"></div>' +
             '<textarea id="q_aiDesc" rows="8" hidden placeholder="Tu pojawi się opis wygenerowany przez AI — możesz go edytować. Puste = użyjemy szablonu z listy."></textarea></div>' +
           publishFieldsHtml("q", null) +
           '<div class="field checkbox-field"><input type="checkbox" id="q_featured"><label for="q_featured" style="font-size:13.5px;font-weight:500;color:var(--ink)">Pokaż jako ofertę dnia</label></div>' +
@@ -2487,8 +2520,9 @@
         price: isNaN(cp) ? "" : formatPrice(cp, byId("q_cur").value), dates: tripShort({ dateFrom: byId("q_dateFrom").value, dateTo: byId("q_dateTo").value }),
         notes: [byId("q_from").value.trim() ? "Wylot z: " + byId("q_from").value.trim() : "", byId("q_aiNotes").value.trim()].filter(Boolean).join(". "),
         extras: ctx.extras, pricing: ctx.pricing, images: ctx.images
-      }).then(function (text) {
-        ta.value = text; ta.hidden = false; btn.disabled = false; btn.textContent = old; hint.textContent = "Gotowe — popraw, jeśli chcesz. Opis zapisze się razem z ofertą.";
+      }).then(function (res) {
+        ta.value = res.text; ta.hidden = false; byId("q_aiTitleBox").hidden = !res.title; if (res.title) byId("q_aiTitle").value = res.title;
+        btn.disabled = false; btn.textContent = old; hint.textContent = "Gotowe — popraw tytuł i opis, jeśli chcesz. Zapiszą się razem z ofertą.";
       }, function (err) {
         btn.disabled = false; btn.textContent = old; hint.textContent = ""; quickMsg("err", escapeHtml(err.message || "Nie udało się wygenerować opisu."));
       });
@@ -2524,7 +2558,7 @@
       if (pub.error) { quickMsg("err", pub.error); return; }
       var city = dest.split(",")[0].trim();
       var info = { city: city, from: typeKey === "flight" ? from : "", price: price, currency: cur };
-      var title = autoTitle(typeKey, info);
+      var title = byId("q_aiTitle").value.trim() || autoTitle(typeKey, info);
       var prov = lookupProvider(url);
       var slugs = activeOffers().map(function (o) { return o.slug; });
       var record = {
@@ -3246,53 +3280,231 @@
 
   /* ========================= ADMIN: STATS + SUBSCRIBERS ==================== */
 
+  /* ---- Statystyki: wybór zakresu (dzień, miesiąc, własny), wykres dzienny, porównanie z poprzednim okresem ---- */
+  var statsUi = { preset: "30d", day: "", from: "", to: "", offer: "" };
+  var statsLast = null;
+  function ymdLocal(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+  function parseYmd(v) { var p = String(v || "").split("-"); return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1); }
+  function addDays(d, n) { var x = new Date(d.getTime()); x.setDate(x.getDate() + n); return x; }
+  var STAT_PRESETS = [
+    ["today", "Dziś"], ["yesterday", "Wczoraj"], ["7d", "Ostatnie 7 dni"], ["30d", "Ostatnie 30 dni"], ["90d", "Ostatnie 90 dni"],
+    ["month", "Ten miesiąc"], ["prevmonth", "Poprzedni miesiąc"], ["year", "Ten rok"], ["all", "Cały czas"], ["day", "Wybrany dzień…"], ["custom", "Własny zakres…"]
+  ];
+  // zwraca [start, koniec) w czasie lokalnym
+  function statsRange() {
+    var today = parseYmd(ymdLocal(new Date())), p = statsUi.preset, st, en;
+    if (p === "today") { st = today; en = addDays(today, 1); }
+    else if (p === "yesterday") { st = addDays(today, -1); en = today; }
+    else if (p === "7d") { st = addDays(today, -6); en = addDays(today, 1); }
+    else if (p === "90d") { st = addDays(today, -89); en = addDays(today, 1); }
+    else if (p === "month") { st = new Date(today.getFullYear(), today.getMonth(), 1); en = addDays(today, 1); }
+    else if (p === "prevmonth") { st = new Date(today.getFullYear(), today.getMonth() - 1, 1); en = new Date(today.getFullYear(), today.getMonth(), 1); }
+    else if (p === "year") { st = new Date(today.getFullYear(), 0, 1); en = addDays(today, 1); }
+    else if (p === "all") { st = new Date(2000, 0, 1); en = addDays(today, 1); }
+    else if (p === "day") { st = parseYmd(statsUi.day || ymdLocal(today)); en = addDays(st, 1); }
+    else if (p === "custom") {
+      st = parseYmd(statsUi.from || ymdLocal(addDays(today, -6))); var t2 = parseYmd(statsUi.to || ymdLocal(today));
+      if (t2 < st) { var sw = st; st = t2; t2 = sw; }
+      en = addDays(t2, 1);
+    } else { st = addDays(today, -29); en = addDays(today, 1); }
+    return [st, en];
+  }
+  function rangeLabel(r) {
+    var a = r[0], b = addDays(r[1], -1);
+    if (statsUi.preset === "all") return "cały czas";
+    var f = function (d) { return d.toLocaleDateString("pl-PL", { day: "numeric", month: "short", year: "numeric" }); };
+    return ymdLocal(a) === ymdLocal(b) ? f(a) : f(a) + " – " + f(b);
+  }
+
   function renderStatsCard() {
     return (
       '<div class="admin-card">' +
         "<h2 style='font-size:17px;margin:0 0 4px'>📊 Statystyki (anonimowe)</h2>" +
         '<p class="hint" style="margin:0 0 10px">Wyświetlenia stron ofert i kliknięcia w linki partnerów. Twoje własne wizyty (gdy jesteś zalogowany) nie są liczone.</p>' +
+        '<div class="st-bar">' +
+          '<select id="st_preset" aria-label="Zakres">' + STAT_PRESETS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === statsUi.preset ? " selected" : "") + ">" + p[1] + "</option>"; }).join("") + "</select>" +
+          '<span id="st_dayBox" style="display:none"><button type="button" class="btn ghost small" id="st_prev" title="Poprzedni dzień">‹</button> <input type="date" id="st_day"> <button type="button" class="btn ghost small" id="st_next" title="Następny dzień">›</button></span>' +
+          '<span id="st_rangeBox" style="display:none"><input type="date" id="st_from"> – <input type="date" id="st_to"></span>' +
+          '<select id="st_offer" aria-label="Oferta"><option value="">Wszystkie oferty</option></select>' +
+          '<button type="button" class="btn ghost small" id="st_csv" title="Pobierz dane dzień po dniu (CSV do Excela)">⬇ CSV</button>' +
+        "</div>" +
         '<div id="statsBox"><span class="hint">Wczytywanie…</span></div>' +
         '<div id="srcBox"></div>' +
       "</div>"
     );
   }
 
+  function statsAgg(events, offerSlug) {
+    var a = { views: 0, clicks: 0, days: {}, hours: [], offers: {}, sources: {}, partners: {} }, i;
+    for (i = 0; i < 24; i++) a.hours.push(0);
+    events.forEach(function (e) {
+      if (offerSlug && e.slug !== offerSlug) return;
+      var d = new Date(e.created_at); if (isNaN(d.getTime())) return;
+      var key = ymdLocal(d), isV = e.kind === "view";
+      var day = a.days[key] || (a.days[key] = { v: 0, c: 0 });
+      var o = a.offers[e.slug] || (a.offers[e.slug] = { v: 0, c: 0 });
+      if (isV) { a.views++; day.v++; o.v++; a.hours[d.getHours()]++; var k = e.target || "bezpośrednio / inne"; a.sources[k] = (a.sources[k] || 0) + 1; }
+      else { a.clicks++; day.c++; o.c++; var pk = e.target || "inne"; a.partners[pk] = (a.partners[pk] || 0) + 1; }
+    });
+    return a;
+  }
+  function deltaHtml(cur, prev) {
+    if (prev === null || prev === undefined) return "";
+    if (!prev) return cur ? '<small class="st-up">nowe</small>' : "";
+    var pct = Math.round((cur - prev) / prev * 100);
+    return '<small class="' + (pct > 0 ? "st-up" : pct < 0 ? "st-down" : "") + '">' + (pct > 0 ? "▲ +" : pct < 0 ? "▼ " : "= ") + pct + "% vs poprzedni okres</small>";
+  }
+  function chipsHtml(obj, label) {
+    var keys = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; }).slice(0, 12);
+    return keys.length ? '<p class="hint" style="margin:10px 0 4px">' + label + '</p><div class="src-line">' + keys.map(function (k) { return "<span>" + escapeHtml(k) + " <b class='mono'>" + obj[k] + "</b></span>"; }).join("") + "</div>" : "";
+  }
+
+  function renderStatsResult(events, range) {
+    var box = byId("statsBox"); if (!box) return;
+    var len = Math.round((range[1] - range[0]) / 86400000);
+    var prevStart = addDays(range[0], -len), allTime = statsUi.preset === "all";
+    var cur = [], prev = [];
+    events.forEach(function (e) { var t = new Date(e.created_at).getTime(); if (t >= range[0].getTime() && t < range[1].getTime()) cur.push(e); else if (!allTime && t >= prevStart.getTime() && t < range[0].getTime()) prev.push(e); });
+    var slug = statsUi.offer, A = statsAgg(cur, slug), B = allTime ? null : statsAgg(prev, slug);
+    statsLast = { A: A, range: range };
+    // wykres: dni (lub miesiące przy długim zakresie)
+    var buckets = [], byMonth = len > 100, d = new Date(range[0].getTime());
+    var maxDay = new Date(Math.min(addDays(range[1], -1).getTime(), Date.now()));
+    if (allTime) { var keys = Object.keys(A.days).sort(); if (keys.length) d = parseYmd(keys[0]); }
+    if (byMonth) {
+      var mm = {}; Object.keys(A.days).forEach(function (k) { var m = k.slice(0, 7), x = mm[m] || (mm[m] = { v: 0, c: 0 }); x.v += A.days[k].v; x.c += A.days[k].c; });
+      var cm = new Date(d.getFullYear(), d.getMonth(), 1);
+      while (cm <= maxDay) { var mk = ymdLocal(cm).slice(0, 7); buckets.push({ label: cm.toLocaleDateString("pl-PL", { month: "short", year: "2-digit" }), v: (mm[mk] || {}).v || 0, c: (mm[mk] || {}).c || 0 }); cm = new Date(cm.getFullYear(), cm.getMonth() + 1, 1); }
+    } else {
+      for (var x = new Date(d.getTime()); x <= maxDay; x = addDays(x, 1)) { var dk = ymdLocal(x); buckets.push({ label: x.toLocaleDateString("pl-PL", { day: "numeric", month: "short" }), v: (A.days[dk] || {}).v || 0, c: (A.days[dk] || {}).c || 0 }); }
+    }
+    var mx = 1; buckets.forEach(function (b) { if (b.v > mx) mx = b.v; });
+    var best = null; buckets.forEach(function (b) { if (!best || b.v > best.v) best = b; });
+    var chart = buckets.length > 1 ? '<div class="st-chart">' + buckets.map(function (b) {
+      return '<div class="st-col" title="' + escapeHtml(b.label) + ": " + b.v + " wyśw., " + b.c + ' kliknięć"><i style="height:' + Math.max(b.v ? 3 : 0, Math.round(b.v / mx * 100)) + '%"></i></div>';
+    }).join("") + '</div><div class="st-axis"><span>' + escapeHtml(buckets[0].label) + "</span><span>" + escapeHtml(buckets[buckets.length - 1].label) + "</span></div>" : "";
+    var ctr = A.views ? Math.round(A.clicks / A.views * 1000) / 10 : 0;
+    var avg = buckets.length ? Math.round(A.views / buckets.length * 10) / 10 : 0;
+    // godziny
+    var hmax = 1; A.hours.forEach(function (h) { if (h > hmax) hmax = h; });
+    var peakH = A.hours.indexOf(hmax);
+    var hoursHtml = A.views ? '<p class="hint" style="margin:10px 0 4px">Godziny wizyt' + (hmax > 0 ? " (najwięcej około " + peakH + ":00)" : "") + ':</p><div class="st-chart st-hours">' + A.hours.map(function (h, i) { return '<div class="st-col" title="' + i + ":00 — " + h + ' wyśw."><i style="height:' + Math.round(h / hmax * 100) + '%"></i></div>'; }).join("") + '</div><div class="st-axis"><span>0:00</span><span>12:00</span><span>23:00</span></div>' : "";
+    // top oferty
+    var rows = Object.keys(A.offers).map(function (k) { return { slug: k, v: A.offers[k].v, c: A.offers[k].c }; })
+      .filter(function (r) { return state.offers.some(function (o) { return o.slug === r.slug; }); })
+      .sort(function (a, b) { return b.c - a.c || b.v - a.v; }).slice(0, 8);
+    var topHtml = !slug && rows.length ? "<ol class='top-list'>" + rows.map(function (r) {
+      var o = state.offers.find(function (z) { return z.slug === r.slug; });
+      return "<li><span>" + escapeHtml(o ? o.title : r.slug) + "</span><b class='mono'>" + r.v + " 👁 · " + r.c + " 🖱 · " + (r.v ? Math.round(r.c / r.v * 100) : 0) + "%</b></li>";
+    }).join("") + "</ol>" : "";
+    box.innerHTML =
+      '<p class="hint" style="margin:0 0 8px"><b>' + escapeHtml(rangeLabel(range)) + "</b>" + (slug ? " · " + escapeHtml((state.offers.find(function (o) { return o.slug === slug; }) || {}).title || slug) : "") + "</p>" +
+      '<div class="stat-line">' +
+        '<div><b class="mono">' + A.views + "</b><span>wyświetleń</span>" + (B ? deltaHtml(A.views, B.views) : "") + "</div>" +
+        '<div><b class="mono">' + A.clicks + "</b><span>kliknięć w partnerów</span>" + (B ? deltaHtml(A.clicks, B.clicks) : "") + "</div>" +
+        '<div><b class="mono">' + ctr + "%</b><span>klikalność</span></div>" +
+        (buckets.length > 1 ? '<div><b class="mono">' + avg + "</b><span>średnio / " + (byMonth ? "miesiąc" : "dzień") + "</span></div>" : "") +
+        (best && best.v ? '<div><b class="mono">' + best.v + "</b><span>najlepszy " + (byMonth ? "miesiąc" : "dzień") + ": " + escapeHtml(best.label) + "</span></div>" : "") +
+      "</div>" + chart + topHtml +
+      (A.views || A.clicks ? "" : '<p class="hint">Brak danych w tym zakresie.</p>') + hoursHtml;
+    var box2 = byId("srcBox");
+    if (box2) box2.innerHTML = chipsHtml(A.sources, "Skąd wchodzą odwiedzający:") + chipsHtml(A.partners, "Kliknięcia wg partnera:");
+  }
+
+  function loadStatsRange() {
+    var box = byId("statsBox"); if (!box) return;
+    var range = statsRange(), len = Math.round((range[1] - range[0]) / 86400000);
+    var from = statsUi.preset === "all" ? null : addDays(range[0], -len);
+    box.innerHTML = '<span class="hint">Wczytywanie…</span>';
+    SB.loadEvents(from ? from.toISOString() : null, range[1].toISOString()).then(function (ev) {
+      renderStatsResult(ev || [], range);
+    }, function () {
+      var b2 = byId("statsBox");
+      if (b2) b2.innerHTML = '<p class="hint">Statystyki niedostępne — uruchom ponownie plik setup.sql w Supabase (SQL Editor).</p>';
+    });
+  }
+
+  function wireStatsBar() {
+    var preset = byId("st_preset"); if (!preset) return;
+    var today = ymdLocal(new Date());
+    function sync() {
+      byId("st_dayBox").style.display = statsUi.preset === "day" ? "" : "none";
+      byId("st_rangeBox").style.display = statsUi.preset === "custom" ? "" : "none";
+      byId("st_day").value = statsUi.day || today; byId("st_day").max = today;
+      byId("st_from").value = statsUi.from || ymdLocal(addDays(new Date(), -6)); byId("st_to").value = statsUi.to || today;
+    }
+    var sel = byId("st_offer");
+    sel.innerHTML = '<option value="">Wszystkie oferty</option>' + state.offers.map(function (o) { return '<option value="' + escapeHtml(o.slug) + '"' + (o.slug === statsUi.offer ? " selected" : "") + ">" + escapeHtml(String(o.title || o.slug).slice(0, 60)) + "</option>"; }).join("");
+    preset.addEventListener("change", function () { statsUi.preset = preset.value; if (preset.value === "day" && !statsUi.day) statsUi.day = today; sync(); loadStatsRange(); });
+    byId("st_day").addEventListener("change", function () { statsUi.day = this.value || today; loadStatsRange(); });
+    byId("st_prev").addEventListener("click", function () { statsUi.day = ymdLocal(addDays(parseYmd(statsUi.day || today), -1)); sync(); loadStatsRange(); });
+    byId("st_next").addEventListener("click", function () { var n = ymdLocal(addDays(parseYmd(statsUi.day || today), 1)); if (n > today) return; statsUi.day = n; sync(); loadStatsRange(); });
+    byId("st_from").addEventListener("change", function () { statsUi.from = this.value; loadStatsRange(); });
+    byId("st_to").addEventListener("change", function () { statsUi.to = this.value; loadStatsRange(); });
+    sel.addEventListener("change", function () { statsUi.offer = sel.value; loadStatsRange(); });
+    byId("st_csv").addEventListener("click", function () {
+      if (!statsLast) return;
+      var A = statsLast.A, lines = ["data;wyswietlenia;klikniecia"];
+      Object.keys(A.days).sort().forEach(function (k) { lines.push(k + ";" + A.days[k].v + ";" + A.days[k].c); });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
+      a.download = "statystyki-" + ymdLocal(new Date()) + ".csv"; document.body.appendChild(a); a.click(); a.remove();
+    });
+    sync();
+  }
+
   function loadAdminStats() {
+    wireStatsBar();
+    loadStatsRange();
+    // liczniki przy ofertach na liście (łącznie)
     SB.loadStats().then(function (rows) {
-      rows = rows || [];
       adminStats = {};
       (rows || []).forEach(function (r) { adminStats[r.slug] = r; });
-      var tv = 0, tc = 0;
-      rows.forEach(function (r) { tv += r.views_30d || 0; tc += r.clicks_30d || 0; });
-      var top = rows.slice().filter(function (r) { return state.offers.some(function (o) { return o.slug === r.slug; }); })
-        .sort(function (a, b) { return (b.clicks_30d || 0) - (a.clicks_30d || 0) || (b.views_30d || 0) - (a.views_30d || 0); }).slice(0, 5);
-      var box = byId("statsBox");
-      if (!box) return;
-      box.innerHTML =
-        '<div class="stat-line"><div><b class="mono">' + tv + '</b><span>wyświetleń (30 dni)</span></div>' +
-        '<div><b class="mono">' + tc + '</b><span>kliknięć w partnerów</span></div>' +
-        '<div><b class="mono">' + (tv ? Math.round(tc / tv * 100) : 0) + '%</b><span>klikalność</span></div></div>' +
-        (top.length ? "<ol class='top-list'>" + top.map(function (r) {
-          var o = state.offers.find(function (x) { return x.slug === r.slug; });
-          return "<li><span>" + escapeHtml(o ? o.title : r.slug) + "</span><b class='mono'>" + (r.views_30d || 0) + " 👁 · " + (r.clicks_30d || 0) + " 🖱</b></li>";
-        }).join("") + "</ol>" : '<p class="hint">Jeszcze brak danych — pojawią się po pierwszych odwiedzinach.</p>');
-      SB.loadViewSources().then(function (ev) {
-        var box2 = byId("srcBox");
-        if (!box2) return;
-        var counts = {};
-        (ev || []).forEach(function (e) { if (e.kind && e.kind !== "view") return; var k = e.target || "bezpośrednio / inne"; counts[k] = (counts[k] || 0) + 1; });
-        var keys = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
-        box2.innerHTML = keys.length ? '<p class="hint" style="margin:10px 0 4px">Skąd wchodzą odwiedzający (30 dni):</p><div class="src-line">' +
-          keys.map(function (k) { return "<span>" + escapeHtml(k) + " <b class='mono'>" + counts[k] + "</b></span>"; }).join("") + "</div>" : "";
-      }, function () {});
       qsa("[data-stat]").forEach(function (el) {
         var r = adminStats[el.getAttribute("data-stat")];
         el.textContent = r ? " · 👁 " + (r.views || 0) + " · 🖱 " + (r.clicks || 0) : " · 👁 0 · 🖱 0";
       });
-    }, function () {
-      var box = byId("statsBox");
-      if (box) box.innerHTML = '<p class="hint">Statystyki niedostępne — uruchom ponownie plik setup.sql w Supabase (SQL Editor).</p>';
-    });
+    }, function () {});
+  }
+
+  /* ---- Wymagane pola: czerwone, dopóki puste; zielone po uzupełnieniu + lista „Do uzupełnienia” ---- */
+  function wireRequired(boxId, root, items) {
+    var box = byId(boxId);
+    if (!box || !root) return;
+    box.innerHTML = '<span class="req-msg"></span>' + items.map(function (it, i) { return '<span class="req-chip" data-req="' + i + '"></span>'; }).join("");
+    function upd() {
+      if (!document.body.contains(box)) { clearInterval(iv); return; }
+      var all = true;
+      items.forEach(function (it, i) {
+        var ok = !!it.ok(); if (!ok) all = false;
+        var w = it.wrap(); if (w) { w.classList.add("req-field"); w.classList.toggle("req-bad", !ok); w.classList.toggle("req-ok", ok); }
+        var chip = qs('[data-req="' + i + '"]', box); chip.className = "req-chip " + (ok ? "ok" : "bad"); chip.textContent = (ok ? "✅ " : "❌ ") + it.label;
+      });
+      box.classList.toggle("done", all);
+      qs(".req-msg", box).textContent = all ? "Wszystko gotowe — możesz zapisać ofertę 🎉" : "Do uzupełnienia:";
+    }
+    ["input", "change", "click", "keyup"].forEach(function (ev) { root.addEventListener(ev, function () { setTimeout(upd, 0); }); });
+    var iv = setInterval(upd, 700);
+    upd();
+  }
+  function wireRequiredFields() {
+    var isUrl = function (v) { return /^https?:\/\/\S+/i.test(String(v || "").trim()); };
+    var fw = function (id) { return function () { var e = byId(id); return e && e.closest(".field"); }; };
+    var adv = byId("advBox");
+    if (adv && byId("f_reqBox")) wireRequired("f_reqBox", adv, [
+      { label: "Tytuł", ok: function () { return byId("f_title").value.trim().length > 0; }, wrap: fw("f_title") },
+      { label: "Cena aktualna", ok: function () { var v = parseFloat(byId("f_currentPrice").value); return !isNaN(v) && v >= 0 && byId("f_currentPrice").value !== ""; }, wrap: fw("f_currentPrice") },
+      { label: "Link afiliacyjny", ok: function () {
+          return qsa(".lr-url", adv).some(function (i) { return isUrl(i.value); }) ||
+            qsa(".extra-row", adv).some(function (r) { return qs(".ex-btn", r).checked && isUrl(qs(".ex-url", r).value); });
+        }, wrap: function () { var l = byId("linksBox"); return l && l.closest(".field"); } }
+    ]);
+    var qb = byId("quickBox");
+    if (qb && byId("q_reqBox")) wireRequired("q_reqBox", qb, [
+      { label: "Kierunek", ok: function () { return byId("q_dest").value.trim().length > 0; }, wrap: fw("q_dest") },
+      { label: "Link afiliacyjny", ok: function () { return isUrl(byId("q_url").value); }, wrap: fw("q_url") },
+      { label: "Cena", ok: function () { var p = readPricing("qp"); return (p && p.headline !== "manual") || byId("q_price").value !== ""; }, wrap: fw("q_price") }
+    ]);
   }
 
   var subscribersCache = [];
@@ -3704,7 +3916,7 @@
       var btn = this, dest = byId("f_destination").value.trim() || byId("f_title").value.trim();
       var d = byId("f_description");
       var current = d.value.split("\n").filter(function (l) { return l.indexOf("🗓 Termin wyjazdu") !== 0; }).join("").trim();
-      if (current && !window.confirm("Zastąpić obecny opis opisem wygenerowanym przez AI?")) return;
+      if ((current || byId("f_title").value.trim()) && !window.confirm("Zastąpić obecny tytuł i opis wersją wygenerowaną przez AI?")) return;
       var cp = parseFloat(byId("f_currentPrice").value), ctx = aiCollect("fp", byId("offerForm"));
       var old = btn.textContent; btn.disabled = true; btn.textContent = ctx.images.length ? "Czytam zrzuty i piszę…" : "Generuję…";
       aiDescribe({
@@ -3712,8 +3924,9 @@
         price: isNaN(cp) ? "" : formatPrice(cp, byId("f_currency").value), dates: tripShort({ dateFrom: byId("f_dateFrom").value, dateTo: byId("f_dateTo").value }),
         notes: [byId("f_provider").value.trim() ? "Partner: " + byId("f_provider").value.trim() : "", byId("f_aiNotes").value.trim()].filter(Boolean).join(". "),
         extras: ctx.extras, pricing: ctx.pricing, images: ctx.images
-      }).then(function (text) {
-        d.value = withTripLine(text, byId("f_dateFrom").value, byId("f_dateTo").value);
+      }).then(function (res) {
+        d.value = withTripLine(res.text, byId("f_dateFrom").value, byId("f_dateTo").value);
+        if (res.title) { byId("f_title").value = res.title; byId("f_title").dispatchEvent(new Event("input", { bubbles: true })); }
         byId("formMsg").innerHTML = ""; btn.disabled = false; btn.textContent = old;
       }, function (err) {
         btn.disabled = false; btn.textContent = old; formMsg("err", err.message || "Nie udało się wygenerować opisu.");
