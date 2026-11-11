@@ -122,7 +122,7 @@
     flights: "Loty",
     hotels: "Noclegi",
     packages: "Wycieczki",
-    holidays: "Wczasy",
+    holidays: "Wczasy z biura",
     carRental: "Wynajem auta",
     attractions: "Atrakcje"
   };
@@ -446,6 +446,16 @@
     ".quick-card{border-color:var(--accent)}",
     ".adv-box{margin:20px 0}",
     ".main-box>summary{font-size:16px;color:#fff;background:rgba(255,255,255,.12);border-radius:12px;padding:12px 14px}.quick-box>summary{color:#fff;font-size:14px}.quick-box{margin-top:8px}",
+    ".photo-row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;margin-top:6px}.share-thumbs{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;flex:1 1 280px}",
+    ".share-thumbs .thumb{margin:0;text-align:center}.share-thumbs .thumb img{display:block;border-radius:8px;border:1px solid #d9dee6;box-shadow:0 2px 8px rgba(11,27,51,.18);background:#fff}",
+    ".share-thumbs .thumb-og img{width:210px;height:auto}.share-thumbs .thumb-ig img{width:112px;height:auto}.share-thumbs .thumb-story img{width:84px;height:auto}",
+    ".share-thumbs figcaption{font-size:11.5px;font-weight:700;margin-top:3px;color:var(--ink)}.share-thumbs figcaption small{font-weight:500;color:var(--ink-dim)}.thumbs-hint{flex-basis:100%;font-size:11.5px;color:var(--ink-dim)}",
+    ".holiday-admin{margin:0 0 14px;border:2px solid #0ea5e9;border-radius:14px;background:#f0f9ff;padding:12px 14px}.holiday-admin[hidden]{display:none}",
+    ".holiday-admin-head{font-weight:800;font-size:16px;margin-bottom:8px;color:#075985}.aff-box{background:#fff7e6;border:1px solid #fbbf24;border-radius:10px;padding:9px 11px;font-size:13px;margin-bottom:10px;line-height:1.45}",
+    ".aff-status{margin-top:6px;font-weight:700}.aff-status.ok{color:#15803d}.aff-status.warn{color:#b45309}.h-checks{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:2px 0 8px;font-weight:700}.h-check{display:inline-flex;gap:5px;align-items:center;font-weight:600}",
+    ".holiday-card{color:#0b1b33;margin:14px 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}.holiday-head{background:linear-gradient(90deg,#0ea5e9,#2563eb);color:#fff;font-weight:800;padding:10px 14px}",
+    ".holiday-row{display:flex;justify-content:space-between;gap:12px;padding:9px 14px;border-top:1px solid var(--line);font-size:14px}.holiday-row b{text-align:right}",
+    ".aff-note{margin-top:10px;padding:9px 11px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:12.5px;line-height:1.45}",
     ".req-box{position:sticky;top:6px;z-index:5;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:10px 12px;margin:0 0 14px;border-radius:12px;border:2px solid #f87171;background:#fef2f2;color:#7f1d1d;font-size:13.5px;box-shadow:0 4px 14px rgba(0,0,0,.12)}",
     ".req-box.done{border-color:#4ade80;background:#f0fdf4;color:#14532d}.req-box .req-msg{font-weight:800;margin-right:4px}",
     ".req-chip{font-weight:700;border-radius:999px;padding:3px 10px;background:#fff;border:1px solid #fca5a5}.req-chip.ok{border-color:#86efac;color:#15803d}.req-chip.bad{color:#b91c1c}",
@@ -974,6 +984,7 @@
     return null;
   }
 
+  var BRAND_HASHTAG = "#latajzgorylem", MAX_HASHTAGS = 5;
   var GENERIC_HASHTAGS = ["#PodrozeZaGranice", "#TaniePodroze", "#OfertaDnia"];
   var CATEGORY_HASHTAGS = {
     flights: ["#TanieLoty", "#BiletyLotnicze"],
@@ -1004,7 +1015,9 @@
     GENERIC_HASHTAGS.forEach(function (t) {
       if (tags.indexOf(t) === -1) tags.push(t);
     });
-    return tags.slice(0, 8);
+    // Zawsze #latajzgorylem na początku; limit Instagrama/Facebooka to 5 hashtagów
+    tags = tags.filter(function (t) { return t.toLowerCase() !== BRAND_HASHTAG.toLowerCase(); });
+    return [BRAND_HASHTAG].concat(tags).slice(0, MAX_HASHTAGS);
   }
 
   function buildSocialCaption(offer, shareUrl) {
@@ -1054,7 +1067,7 @@
     var excerpt = offer.description ? offer.description.split("\n")[0] : "";
     if (excerpt.length > 160) excerpt = excerpt.slice(0, 157) + "…";
     var seen = {};
-    var igTags = tags.concat(IG_EXTRA_TAGS).filter(function (x) { var k = x.toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; }).slice(0, 15);
+    var igTags = tags.slice(0, MAX_HASHTAGS);
     var dest0 = offer.destination ? "📍 " + offer.destination : null;
     var dated0 = dated || null;
     var deal = "💰 " + price + (pct > 0 ? " (-" + pct + "%)" : "");
@@ -1753,6 +1766,7 @@
           '<div class="cat-label" style="margin-top:16px">' + escapeHtml((CATEGORY_ICONS[offer.category] || "") + " " + (CATEGORY_LABELS[offer.category] || offer.category)) + "</div>" +
           "<h1 style='font-size:28px;margin-top:6px'>" + escapeHtml(offer.title) + "</h1>" +
           '<div class="dest" style="font-size:15px">' + escapeHtml(offer.destination || "") + (offer.provider ? " · " + escapeHtml(offer.provider) : "") + "</div>" +
+          holidayBoxHtml(offer) +
           '<div class="desc">' + escapeHtml(offer.description || "") + "</div>" +
         "</div>" +
         '<div class="buybox">' +
@@ -1766,6 +1780,7 @@
             return '<a class="btn ' + (idx === 0 ? "primary" : "ghost") + ' block" target="_blank" rel="noopener sponsored" href="' + escapeHtml(l.url) + '">' +
               t.icon + " " + escapeHtml(l.label || t.cta) + " →</a>";
           }).join("") +
+          (offer.category === "holidays" ? '<div class="aff-note">🔗 To oferta biura podróży. Przycisk prowadzi do strony biura przez link afiliacyjny — możemy otrzymać prowizję, bez dodatkowych kosztów dla Ciebie. Cena i dostępność zgodnie z biurem; sprawdź aktualne warunki przed rezerwacją.</div>' : "") +
           '<div class="row"><span>Partner</span><span>' + escapeHtml(offer.provider || "—") + "</span></div>" +
           '<div class="row"><span>Kierunek</span><span>' + escapeHtml(offer.destination || "—") + "</span></div>" +
           (offer.createdAt ? '<div class="row"><span>Dodano</span><span class="mono">' + escapeHtml(addedShort(offer.createdAt)) + "</span></div>" : "") +
@@ -1787,6 +1802,39 @@
 
   var adminEditingSlug = null;
 
+  var HOLIDAY_BOARDS = { none: "Bez wyżywienia", bb: "Śniadania (BB)", hb: "Śniadania i obiadokolacje (HB)", fb: "Pełne wyżywienie (FB)", ai: "All inclusive", uai: "Ultra all inclusive" };
+  var HOLIDAY_AGENCIES = ["TUI", "Exim Tours", "Itaka", "Rainbow", "Coral Travel", "Grecos", "Wakacje.pl", "Neckermann"];
+  function starsText(n) { n = parseInt(n, 10) || 0; return n > 0 ? new Array(n + 1).join("★") + new Array(6 - n).join("☆") : ""; }
+  function holidayNights(o) {
+    var h = o.holiday || {}; if (parseInt(h.nights, 10) > 0) return parseInt(h.nights, 10);
+    if (o.dateFrom && o.dateTo) { var n = Math.round((new Date(o.dateTo + "T12:00:00") - new Date(o.dateFrom + "T12:00:00")) / 86400000); return n > 0 ? n : 0; }
+    return 0;
+  }
+  function holidayFactsText(h, o) {
+    h = h || {}; var parts = [];
+    if (h.agency) parts.push("biuro podróży " + h.agency);
+    if (h.hotel) parts.push("hotel " + h.hotel + (h.stars ? " " + h.stars + "★" : ""));
+    if (h.board && HOLIDAY_BOARDS[h.board]) parts.push(HOLIDAY_BOARDS[h.board]);
+    var n = holidayNights({ holiday: h, dateFrom: o && o.dateFrom, dateTo: o && o.dateTo }); if (n) parts.push(n + " nocy");
+    if (h.from) parts.push("wylot z: " + h.from);
+    var inc = []; if (h.flight) inc.push("przelot"); if (h.transfer) inc.push("transfer"); if (h.baggage) inc.push("bagaż"); if (inc.length) parts.push("w cenie: " + inc.join(", "));
+    return parts.length ? "Wczasy z biura podróży — " + parts.join("; ") : "";
+  }
+  function holidayBoxHtml(o) {
+    var h = o.holiday; if (!h || o.category !== "holidays") return "";
+    var rows = [], n = holidayNights(o);
+    if (h.agency) rows.push(["🏢 Biuro podróży", h.agency]);
+    if (h.hotel) rows.push(["🏨 Hotel", h.hotel + (h.stars ? "  " + starsText(h.stars) : "")]);
+    else if (h.stars) rows.push(["⭐ Standard", starsText(h.stars)]);
+    if (h.board && HOLIDAY_BOARDS[h.board]) rows.push(["🍽️ Wyżywienie", HOLIDAY_BOARDS[h.board]]);
+    if (n) rows.push(["🌙 Pobyt", n + " " + (n === 1 ? "noc" : "nocy")]);
+    if (h.from) rows.push(["🛫 Wylot z", h.from]);
+    var inc = []; if (h.flight) inc.push("✈️ przelot"); if (h.transfer) inc.push("🚌 transfer"); if (h.baggage) inc.push("🧳 bagaż");
+    if (inc.length) rows.push(["✅ W cenie", inc.join(" · ")]);
+    if (!rows.length) return "";
+    return '<div class="holiday-card"><div class="holiday-head">🏖️ Oferta biura podróży' + (h.agency ? " · " + escapeHtml(h.agency) : "") + "</div>" +
+      rows.map(function (r) { return '<div class="holiday-row"><span>' + escapeHtml(r[0]) + "</span><b>" + escapeHtml(r[1]) + "</b></div>"; }).join("") + "</div>";
+  }
   function emptyDraft() {
     return { title: "", destination: "", category: "packages", provider: "", originalPrice: "", currentPrice: "", currency: "PLN", image: "", affiliateUrl: "", links: [], extras: [], terms: [], pricing: null, description: "", validUntil: "", dateFrom: "", dateTo: "", status: "published", publishAt: "", featured: false };
   }
@@ -2086,6 +2134,30 @@
     }).join("");
   }
 
+  function holidayAdminHtml(draft) {
+    var h = draft.holiday || {};
+    var chk = function (id, v, label) { return '<label class="h-check"><input type="checkbox" id="' + id + '"' + (v ? " checked" : "") + "> " + label + "</label>"; };
+    return '<div id="holidayBox" class="holiday-admin"' + (draft.category === "holidays" ? "" : " hidden") + ">" +
+      '<div class="holiday-admin-head">🏖️ Wczasy z biura podróży</div>' +
+      '<div class="aff-box"><b>🔗 Pamiętaj: to oferty afiliacyjne.</b> Wklej zwykły link do oferty biura (np. z tui.pl) w sekcji „Linki afiliacyjne” — strona zamieni go na Twój link Tradedoubler, jeśli biuro jest dodane w Ustawieniach. Przy ofercie odwiedzający zobaczą informację, że link jest afiliacyjny.' +
+        '<div class="aff-status" id="h_affStatus"></div></div>' +
+      '<div class="two-col">' +
+        '<div class="field"><label for="h_agency">Biuro podróży</label><input id="h_agency" list="h_agencyList" value="' + escapeHtml(h.agency || "") + '" placeholder="np. TUI"><datalist id="h_agencyList">' + HOLIDAY_AGENCIES.map(function (a) { return '<option value="' + a + '">'; }).join("") + "</datalist></div>" +
+        '<div class="field"><label for="h_hotel">Hotel</label><input id="h_hotel" value="' + escapeHtml(h.hotel || "") + '" placeholder="np. Aldemar Royal Mare"></div>' +
+      "</div>" +
+      '<div class="two-col">' +
+        '<div class="field"><label for="h_stars">Standard hotelu</label><select id="h_stars"><option value="">—</option>' + [3, 4, 5, 2, 1].map(function (n) { return '<option value="' + n + '"' + (String(h.stars) === String(n) ? " selected" : "") + ">" + starsText(n) + " (" + n + ")</option>"; }).join("") + "</select></div>" +
+        '<div class="field"><label for="h_board">Wyżywienie</label><select id="h_board"><option value="">—</option>' + Object.keys(HOLIDAY_BOARDS).map(function (k) { return '<option value="' + k + '"' + (h.board === k ? " selected" : "") + ">" + HOLIDAY_BOARDS[k] + "</option>"; }).join("") + "</select></div>" +
+      "</div>" +
+      '<div class="two-col">' +
+        '<div class="field"><label for="h_nights">Liczba nocy</label><input id="h_nights" type="number" min="1" max="60" value="' + escapeHtml(h.nights || "") + '" placeholder="puste = z dat wyjazdu"></div>' +
+        '<div class="field"><label for="h_from">Wylot z</label><input id="h_from" value="' + escapeHtml(h.from || "") + '" placeholder="np. Katowice, Warszawa"></div>' +
+      "</div>" +
+      '<div class="h-checks"><span>W cenie:</span>' + chk("h_flight", h.flight, "✈️ przelot") + chk("h_transfer", h.transfer, "🚌 transfer") + chk("h_baggage", h.baggage, "🧳 bagaż") + "</div>" +
+      '<span class="hint">Cenę wpisz poniżej jako „Cena aktualna” (za osobę); w „Rozbiciu ceny” ustawisz liczbę osób i cenę za całość.</span>' +
+    "</div>";
+  }
+
   function renderAdminForm(draft) {
     return (
       '<div class="admin-card">' +
@@ -2099,6 +2171,7 @@
             '<div class="field"><label for="f_destination">Kierunek</label><input id="f_destination" value="' + escapeHtml(draft.destination) + '" placeholder="np. Kreta, Grecja"></div>' +
             '<div class="field"><label for="f_category">Kategoria *</label><select id="f_category">' + categoryOptionsHtml(draft.category) + "</select></div>" +
           "</div>" +
+          holidayAdminHtml(draft) +
           '<div class="field"><label for="f_provider">Partner / dostawca</label><input id="f_provider" value="' + escapeHtml(draft.provider) + '" placeholder="np. Booking.com"></div>' +
           '<div class="two-col">' +
             '<div class="field"><label for="f_originalPrice">Cena przed obniżką</label><input id="f_originalPrice" type="number" min="0" step="1" value="' + escapeHtml(draft.originalPrice) + '"></div>' +
@@ -2125,7 +2198,7 @@
             '<div class="paste-zone" id="f_pasteZone" tabindex="0">📋 Wciśnij <b>Ctrl+V</b> (w dowolnym polu formularza oprócz wierszy propozycji), aby wkleić zdjęcie oferty<br><span>albo wybierz plik:</span></div>' +
             '<input id="f_imageFile" type="file" accept="image/*">' +
             '<input id="f_image" value="' + escapeHtml(draft.image && draft.image.indexOf("data:") !== 0 ? draft.image : "") + '" placeholder="…albo wklej link do zdjęcia https://…">' +
-            '<div id="imgPreview" style="margin-top:6px">' + imagePreviewHtml() + "</div>" +
+            '<div class="photo-row"><div id="imgPreview">' + imagePreviewHtml() + '</div><div id="shareThumbs" class="share-thumbs"></div></div>' +
             '<span style="font-size:11.5px;color:var(--ink-dim)">Wgrane zdjęcie jest zmniejszane i zapisywane w stronie — zawsze się wyświetli. Linki do zdjęć z innych stron mogą być blokowane; wtedy pokazujemy ilustrację.</span></div>' +
           '<div class="field ig-photo-field"><label for="f_igFile">Zdjęcie na Instagram i Stories (opcjonalnie, najlepiej pionowe 9:16)</label>' +
             '<input id="f_igFile" type="file" accept="image/*">' +
@@ -2307,7 +2380,7 @@
     hotel: { label: "🏨 Nocleg", category: "hotels", link: "hotel", extra: "hotel" },
     car: { label: "🚗 Wynajem auta", category: "carRental", link: "car", extra: "car" },
     package: { label: "🧳 Wycieczka / pakiet", category: "packages", link: "other", extra: "flight" },
-    holiday: { label: "🏖️ Wczasy (biuro podróży)", category: "holidays", link: "other", extra: "holiday" }
+    holiday: { label: "🏖️ Wczasy z biura podróży", category: "holidays", link: "other", extra: "holiday" }
   };
   var QUICK_LINK_TO_TYPE = { flights: "flight", hotel: "hotel", car: "car" };
   var quickShot = "";
@@ -2959,7 +3032,7 @@
     var canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     var ctx = canvas.getContext("2d");
-    var photo = (function () { var u = (mode !== "og" && /^https?:\/\//i.test(offer.igImage || "")) ? offer.igImage : offer.image; return /^https?:\/\//i.test(u || "") ? u : ""; })();
+    var photo = (function () { var u = (mode !== "og" && /^(https?:\/\/|data:image\/)/i.test(offer.igImage || "")) ? offer.igImage : offer.image; return /^(https?:\/\/|data:image\/)/i.test(u || "") ? u : ""; })();
     var fonts = (document.fonts && document.fonts.load)
       ? Promise.race([Promise.all([document.fonts.load("700 56px Poppins"), document.fonts.load("500 30px Poppins")]), new Promise(function (r) { setTimeout(r, 1200); })])
       : Promise.resolve();
@@ -3770,6 +3843,7 @@
         extras: extras,
         terms: terms,
         pricing: pricing,
+        holiday: readHoliday(),
         description: byId("f_description").value.trim(),
         featured: byId("f_featured").checked,
         dateFrom: byId("f_dateFrom").value || "",
@@ -3889,8 +3963,69 @@
       qs(".ex-unit", row).placeholder = t.unit;
     });
 
+    // --- wczasy z biura: pokazywanie bloku, status linku afiliacyjnego ---
+    function holidayStatus() {
+      var st = byId("h_affStatus"); if (!st) return;
+      var urls = qsa(".lr-url", byId("advBox")).map(function (i) { return i.value.trim(); }).filter(Boolean);
+      if (!urls.length) { st.className = "aff-status warn"; st.textContent = "⚠️ Dodaj link do oferty biura w sekcji „Linki afiliacyjne”."; return; }
+      var u = urls[0];
+      if (isAlreadyPartnerLink(u)) { st.className = "aff-status ok"; st.textContent = "✅ To już link afiliacyjny."; }
+      else if (tdConvert(u)) { st.className = "aff-status ok"; st.textContent = "✅ Link zostanie automatycznie zamieniony na link afiliacyjny Tradedoubler przy zapisie."; }
+      else { st.className = "aff-status warn"; st.textContent = "⚠️ Ten adres nie jest na liście programów afiliacyjnych (Ustawienia) — upewnij się, że to link afiliacyjny, inaczej nie zarobisz prowizji."; }
+    }
+    function holidayToggle() {
+      var box = byId("holidayBox"); if (!box) return;
+      box.hidden = byId("f_category").value !== "holidays"; holidayStatus();
+    }
+    byId("f_category").addEventListener("change", holidayToggle);
+    byId("advBox").addEventListener("input", function (e) { if (e.target.classList && e.target.classList.contains("lr-url")) holidayStatus(); });
+    byId("advBox").addEventListener("change", function (e) { if (e.target.classList && e.target.classList.contains("lr-url")) holidayStatus(); });
+    holidayToggle();
+    function readHoliday() {
+      if (byId("f_category").value !== "holidays") return undefined;
+      var h = { agency: byId("h_agency").value.trim(), hotel: byId("h_hotel").value.trim(), stars: byId("h_stars").value, board: byId("h_board").value,
+        nights: byId("h_nights").value, from: byId("h_from").value.trim(), flight: byId("h_flight").checked, transfer: byId("h_transfer").checked, baggage: byId("h_baggage").checked };
+      var any = h.agency || h.hotel || h.stars || h.board || h.nights || h.from || h.flight || h.transfer || h.baggage;
+      return any ? h : undefined;
+    }
+
+    // --- podgląd grafik promocyjnych (Facebook / Instagram / Story) obok zdjęcia ---
+    var thumbTimer = null, thumbSeq = 0;
+    function draftOfferForCards() {
+      var cp = parseFloat(byId("f_currentPrice").value), op = parseFloat(byId("f_originalPrice").value), pr = null;
+      try { pr = readPricing("fp"); } catch (e) { pr = null; }
+      return {
+        title: byId("f_title").value.trim() || "Tytuł oferty", destination: byId("f_destination").value.trim(), category: byId("f_category").value,
+        currentPrice: cp, originalPrice: isNaN(op) ? undefined : op, currency: byId("f_currency").value,
+        image: draftImage, igImage: draftIgImage || undefined, dateFrom: byId("f_dateFrom").value || "", dateTo: byId("f_dateTo").value || "",
+        validUntil: byId("f_validUntil").value || "", pricing: pr, createdAt: new Date().toISOString()
+      };
+    }
+    function scheduleThumbs() {
+      clearTimeout(thumbTimer);
+      thumbTimer = setTimeout(renderThumbs, 500);
+    }
+    function renderThumbs() {
+      var box = byId("shareThumbs"); if (!box) return;
+      var cp = parseFloat(byId("f_currentPrice").value);
+      if (isNaN(cp)) { box.innerHTML = '<span class="thumbs-hint">Wpisz cenę aktualną, a pokażę tu gotowe grafiki na Facebooka, Instagram i Stories (ze zdjęciem i ceną).</span>'; return; }
+      var seq = ++thumbSeq, offer = draftOfferForCards();
+      box.innerHTML = '<span class="thumbs-hint">Generuję podgląd grafik…</span>';
+      var modes = [["og", "Facebook", "1200×630"], ["ig", "Instagram", "1080×1350"], ["story", "Stories", "1080×1920"]];
+      Promise.all(modes.map(function (m) { return renderCardDataUrl(offer, m[0]).catch(function () { return ""; }); })).then(function (urls) {
+        if (seq !== thumbSeq || !byId("shareThumbs")) return;
+        box.innerHTML = modes.map(function (m, i) {
+          return urls[i] ? '<figure class="thumb thumb-' + m[0] + '"><a href="' + urls[i] + '" download="' + m[1].toLowerCase() + '-podglad.jpg" title="Kliknij, aby pobrać"><img src="' + urls[i] + '" alt="Podgląd: ' + m[1] + '"></a><figcaption>' + m[1] + " <small>" + m[2] + "</small></figcaption></figure>" : "";
+        }).join("") + '<span class="thumbs-hint">Tak będą wyglądać grafiki z ceną. Zmieniają się razem ze zdjęciem, tytułem i ceną.</span>';
+      });
+    }
+    ["f_title", "f_destination", "f_currentPrice", "f_originalPrice", "f_currency", "f_category", "f_validUntil", "f_dateFrom", "f_dateTo"].forEach(function (id) {
+      var el = byId(id); if (el) { el.addEventListener("input", scheduleThumbs); el.addEventListener("change", scheduleThumbs); }
+    });
+
     // --- photo: upload or link ---
     function refreshPreview() {
+      scheduleThumbs();
       byId("imgPreview").innerHTML = imagePreviewHtml();
       var rm = byId("removeImageBtn");
       if (rm) rm.addEventListener("click", function () { draftImage = ""; byId("f_image").value = ""; byId("f_imageFile").value = ""; refreshPreview(); });
@@ -3922,7 +4057,7 @@
       aiDescribe({
         destination: dest, title: byId("f_title").value.trim(), kind: CATEGORY_LABELS[byId("f_category").value] || "",
         price: isNaN(cp) ? "" : formatPrice(cp, byId("f_currency").value), dates: tripShort({ dateFrom: byId("f_dateFrom").value, dateTo: byId("f_dateTo").value }),
-        notes: [byId("f_provider").value.trim() ? "Partner: " + byId("f_provider").value.trim() : "", byId("f_aiNotes").value.trim()].filter(Boolean).join(". "),
+        notes: [byId("f_provider").value.trim() ? "Partner: " + byId("f_provider").value.trim() : "", holidayFactsText(readHoliday(), { dateFrom: byId("f_dateFrom").value, dateTo: byId("f_dateTo").value }), byId("f_aiNotes").value.trim()].filter(Boolean).join(". "),
         extras: ctx.extras, pricing: ctx.pricing, images: ctx.images
       }).then(function (res) {
         d.value = withTripLine(res.text, byId("f_dateFrom").value, byId("f_dateTo").value);
@@ -3956,6 +4091,7 @@
     });
 
     function refreshIgPreview() {
+      scheduleThumbs();
       byId("igImgPreview").innerHTML = igPreviewHtml();
       var rm = byId("removeIgImageBtn");
       if (rm) rm.addEventListener("click", function () { draftIgImage = ""; byId("f_igImage").value = ""; byId("f_igFile").value = ""; refreshIgPreview(); });
