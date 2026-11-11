@@ -39,7 +39,7 @@ function buildMessage(o, url) {
   const dest = (o.destination || "").split(",")[0].trim();
   const when = new Date(o.createdAt || Date.now()).toLocaleDateString("pl-PL", { day: "numeric", month: "long" });
   const excerpt = (o.description || "").split("\n")[0].slice(0, 180);
-  const tags = [tag(dest)].concat(CATTAGS[o.category] || [], ["#Podroze", "#OfertaDnia"]).filter(Boolean).join(" ");
+  const tags = ["#latajzgorylem"].concat([tag(dest)], CATTAGS[o.category] || [], ["#Podroze", "#OfertaDnia"]).filter(Boolean).filter((t, i, arr) => arr.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i).slice(0, 5).join(" ");
   return [
     `${ICON[o.category] || "✈️"} ${o.title}`,
     o.destination ? `📍 ${o.destination}` : "",
