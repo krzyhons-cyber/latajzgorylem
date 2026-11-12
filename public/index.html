@@ -458,7 +458,7 @@
     ".aff-note{margin-top:10px;padding:9px 11px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:12.5px;line-height:1.45}",
     "a.btn[rel~=sponsored],a.btn.ghost[rel~=sponsored]{background:var(--accent);color:var(--accent-ink);border-color:transparent}a.btn[rel~=sponsored]:hover{filter:brightness(1.05)}",
     ".xsell-body span{align-self:flex-start;margin-top:6px;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:12.5px;padding:6px 12px;border-radius:999px}",
-    ".hi-section{margin:26px 0 8px}.hi-section h2{font-size:24px;margin-bottom:12px}.hi-section h2 small{font-size:15px;font-weight:700;opacity:.9;margin-left:6px}.hi-list{display:flex;flex-direction:column;gap:16px}",
+    ".hi-section{margin:26px 0 8px;scroll-margin-top:84px}.hi-section h2{font-size:24px;margin-bottom:12px}.hi-section h2 small{font-size:15px;font-weight:700;opacity:.9;margin-left:6px}.hi-list{display:flex;flex-direction:column;gap:16px}",
     ".hi-card{background:#fff;color:#0b1b33;border:2px solid #ffb02e;border-radius:18px;padding:14px;box-shadow:0 6px 20px rgba(11,27,51,.22)}.hi-main{display:flex;gap:16px;align-items:center;flex-wrap:wrap}",
     ".hi-photo{width:210px;height:150px;object-fit:cover;border-radius:14px;flex:0 0 auto}.hi-body{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:6px}",
     ".hi-name{font-weight:900;font-size:24px;line-height:1.15}.hi-stars{color:#f59e0b;font-size:20px;letter-spacing:2px}.hi-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;color:#334155;font-weight:600}.hi-note{font-size:13.5px;color:#64748b}",
@@ -467,7 +467,7 @@
     ".hi-cta span{font-size:19px;font-weight:900;line-height:1.2}.hi-cta b{font-size:14px;font-weight:700;opacity:.9}.hi-cta:hover{filter:brightness(1.07);transform:translateY(-1px)}",
     "@keyframes hiPulse{0%,100%{box-shadow:0 8px 22px rgba(255,122,0,.45)}50%{box-shadow:0 8px 30px rgba(255,122,0,.85)}}@media (prefers-reduced-motion:reduce){.hi-cta{animation:none}}",
     "@media (max-width:560px){.hi-photo{width:100%;height:190px}.hi-name{font-size:21px}.hi-price{margin-left:0;text-align:left;font-size:27px}.hi-cta span{font-size:17px}}",
-    ".more-hotels{display:block;margin:8px 0 0;padding:11px 14px;border:2px solid #ffb02e;border-radius:12px;background:#fff7e6;color:#9a4a00;font-weight:800;text-align:center;text-decoration:none}",
+    ".more-hotels{display:block;width:100%;cursor:pointer;font:inherit;margin:8px 0 0;padding:11px 14px;border:2px solid #ffb02e;border-radius:12px;background:#fff7e6;color:#9a4a00;font-weight:800;text-align:center;text-decoration:none}",
     ".btn.cta-xl{min-height:60px;font-size:18px;font-weight:900;border-radius:14px;box-shadow:0 8px 20px rgba(255,122,0,.4)}",
     ".hi-admin{margin-top:10px;border-top:2px dashed #7dd3fc;padding-top:10px}.hi-admin small{font-weight:500;color:var(--ink-dim)}.hi-ai{background:#fff;border:1px solid #bae6fd;border-radius:10px;padding:9px 11px;margin-bottom:10px}.hi-ai-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}",
     ".hi-row{background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:9px 10px;margin-bottom:9px}.hi-row.ai{border-color:#f59e0b;background:#fffbeb}.hi-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}.hi-top .hi-remove{margin-left:auto}.hi-aitag{font-size:12px;font-weight:700;color:#b45309}",
@@ -1798,7 +1798,7 @@
             return '<a class="btn ' + (idx === 0 ? "primary" : "ghost") + ' block' + (offer.category === "holidays" ? " cta-xl" : "") + '" target="_blank" rel="noopener sponsored" href="' + escapeHtml(l.url) + '">' +
               t.icon + " " + escapeHtml(l.label || t.cta) + " →</a>";
           }).join("") +
-          (holidayItems(offer).length && offer.category === "holidays" ? '<a class="more-hotels" href="#inne-hotele">⬇ Więcej hoteli i terminów: ' + holidayItems(offer).length + " ofert poniżej</a>" : "") +
+          (holidayItems(offer).length && offer.category === "holidays" ? '<button type="button" class="more-hotels" id="moreHotelsBtn">⬇ Więcej hoteli i terminów: ' + holidayItems(offer).length + " ofert poniżej</button>" : "") +
           (offer.category === "holidays" ? '<div class="aff-note">🔗 To oferta biura podróży. Przycisk prowadzi do strony biura przez link afiliacyjny — możemy otrzymać prowizję, bez dodatkowych kosztów dla Ciebie. Cena i dostępność zgodnie z biurem; sprawdź aktualne warunki przed rezerwacją.</div>' : "") +
           '<div class="row"><span>Partner</span><span>' + escapeHtml(offer.provider || "—") + "</span></div>" +
           '<div class="row"><span>Kierunek</span><span>' + escapeHtml(offer.destination || "—") + "</span></div>" +
@@ -1813,6 +1813,11 @@
       subscribeBoxHtml()
     );
     wireSubscribe();
+    var mh = byId("moreHotelsBtn");
+    if (mh) mh.addEventListener("click", function () {
+      var t = byId("inne-hotele"); if (!t) return;
+      try { t.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { t.scrollIntoView(); }
+    });
     document.title = offer.title + " — " + (state.siteName || BRAND);
     var viewKey = "td.v." + offer.slug;
     try { if (!sessionStorage.getItem(viewKey)) { sessionStorage.setItem(viewKey, "1"); SB.track("view", offer.slug, utmParam("utm_source", "")); } } catch (e) { SB.track("view", offer.slug, utmParam("utm_source", "")); }
