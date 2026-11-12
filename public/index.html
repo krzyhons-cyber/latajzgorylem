@@ -456,6 +456,19 @@
     ".holiday-card{color:#0b1b33;margin:14px 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}.holiday-head{background:linear-gradient(90deg,#0ea5e9,#2563eb);color:#fff;font-weight:800;padding:10px 14px}",
     ".holiday-row{display:flex;justify-content:space-between;gap:12px;padding:9px 14px;border-top:1px solid var(--line);font-size:14px}.holiday-row b{text-align:right}",
     ".aff-note{margin-top:10px;padding:9px 11px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:12.5px;line-height:1.45}",
+    "a.btn[rel~=sponsored],a.btn.ghost[rel~=sponsored]{background:var(--accent);color:var(--accent-ink);border-color:transparent}a.btn[rel~=sponsored]:hover{filter:brightness(1.05)}",
+    ".xsell-body span{align-self:flex-start;margin-top:6px;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:12.5px;padding:6px 12px;border-radius:999px}",
+    ".hi-section{margin:18px 0}.hi-section h2{font-size:20px;margin-bottom:10px}.hi-section h2 small{font-size:14px;font-weight:700;opacity:.85;margin-left:6px}.hi-list{display:flex;flex-direction:column;gap:10px}",
+    ".hi-card{display:flex;gap:12px;align-items:stretch;background:#fff;color:#0b1b33;border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:0 2px 8px rgba(11,27,51,.12)}",
+    ".hi-photo{width:112px;height:84px;object-fit:cover;border-radius:10px;flex:0 0 auto;align-self:center}.hi-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:5px;justify-content:center}",
+    ".hi-name{font-weight:800;font-size:16px}.hi-stars{color:#f59e0b;font-size:14px;letter-spacing:1px}.hi-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:#475569}.hi-note{font-size:12.5px;color:#64748b}",
+    ".hi-buy{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:8px;flex:0 0 auto}.hi-price{font-weight:800;font-size:18px}.hi-price small{font-weight:600;font-size:11.5px;color:#64748b}",
+    "@media (max-width:560px){.hi-card{flex-wrap:wrap}.hi-photo{width:100%;height:150px}.hi-buy{flex-direction:row;align-items:center;justify-content:space-between;width:100%}}",
+    ".hi-admin{margin-top:10px;border-top:2px dashed #7dd3fc;padding-top:10px}.hi-admin small{font-weight:500;color:var(--ink-dim)}.hi-ai{background:#fff;border:1px solid #bae6fd;border-radius:10px;padding:9px 11px;margin-bottom:10px}.hi-ai-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}",
+    ".hi-row{background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:9px 10px;margin-bottom:9px}.hi-row.ai{border-color:#f59e0b;background:#fffbeb}.hi-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}.hi-top .hi-remove{margin-left:auto}.hi-aitag{font-size:12px;font-weight:700;color:#b45309}",
+    ".hi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.hi-grid .hi-hotel{grid-column:span 2}.hi-grid .hi-url{grid-column:span 2}.hi-grid .hi-note{grid-column:span 2}.hi-grid .hi-when{grid-column:span 2}",
+    "@media (max-width:640px){.hi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}",
+    ".hi-photo-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}.hi-thumb img{width:64px;height:48px;object-fit:cover;border-radius:6px;display:block}.hi-actions{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 6px}",
     ".req-box{position:sticky;top:6px;z-index:5;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:10px 12px;margin:0 0 14px;border-radius:12px;border:2px solid #f87171;background:#fef2f2;color:#7f1d1d;font-size:13.5px;box-shadow:0 4px 14px rgba(0,0,0,.12)}",
     ".req-box.done{border-color:#4ade80;background:#f0fdf4;color:#14532d}.req-box .req-msg{font-weight:800;margin-right:4px}",
     ".req-chip{font-weight:700;border-radius:999px;padding:3px 10px;background:#fff;border:1px solid #fca5a5}.req-chip.ok{border-color:#86efac;color:#15803d}.req-chip.bad{color:#b91c1c}",
@@ -1768,6 +1781,7 @@
           '<div class="dest" style="font-size:15px">' + escapeHtml(offer.destination || "") + (offer.provider ? " · " + escapeHtml(offer.provider) : "") + "</div>" +
           holidayBoxHtml(offer) +
           '<div class="desc">' + escapeHtml(offer.description || "") + "</div>" +
+          holidayItemsHtml(offer) +
         "</div>" +
         '<div class="buybox">' +
           (pct > 0 ? '<div class="badge discount" style="position:static;display:inline-block;margin-bottom:8px">-' + pct + "% taniej</div>" : "") +
@@ -1818,7 +1832,40 @@
     var n = holidayNights({ holiday: h, dateFrom: o && o.dateFrom, dateTo: o && o.dateTo }); if (n) parts.push(n + " nocy");
     if (h.from) parts.push("wylot z: " + h.from);
     var inc = []; if (h.flight) inc.push("przelot"); if (h.transfer) inc.push("transfer"); if (h.baggage) inc.push("bagaż"); if (inc.length) parts.push("w cenie: " + inc.join(", "));
+    var li = holidayItemsFacts(holidayItems({ holiday: h })); if (li) parts.push("oferty na liście: " + li);
     return parts.length ? "Wczasy z biura podróży — " + parts.join("; ") : "";
+  }
+  // Lista ofert w jednym ogłoszeniu (np. „Kenia od 3000 zł” + 5–10 hoteli pod spodem)
+  function holidayItems(o) {
+    var it = o && o.holiday && o.holiday.items;
+    return Array.isArray(it) ? it.filter(function (x) { return x && (x.hotel || x.url || typeof x.price === "number"); }) : [];
+  }
+  function holidayItemsFacts(items) {
+    return items.slice(0, 10).map(function (x) {
+      return [x.hotel, x.stars ? x.stars + "★" : "", x.board && HOLIDAY_BOARDS[x.board] ? HOLIDAY_BOARDS[x.board] : "", x.nights ? x.nights + " nocy" : "", x.when, typeof x.price === "number" ? x.price + " zł/os." : ""].filter(Boolean).join(" ");
+    }).join("; ");
+  }
+  function holidayItemsHtml(o) {
+    var items = holidayItems(o); if (!items.length || o.category !== "holidays") return "";
+    var mainUrl = (getOfferLinks(o)[0] || {}).url || "";
+    var prices = items.map(function (x) { return typeof x.price === "number" ? x.price : null; }).filter(function (v) { return v !== null; });
+    var low = prices.length ? Math.min.apply(null, prices) : null;
+    return '<div class="hi-section"><h2>🏨 Oferty z biura podróży' + (items.length > 1 ? " (" + items.length + ")" : "") + (low !== null && items.length > 1 ? ' <small>od ' + escapeHtml(formatPrice(low, o.currency)) + "</small>" : "") + "</h2>" +
+      '<div class="hi-list">' + items.map(function (x) {
+        var url = x.url || mainUrl, meta = [];
+        if (x.resort) meta.push("📍 " + x.resort);
+        if (x.board && HOLIDAY_BOARDS[x.board]) meta.push("🍽️ " + HOLIDAY_BOARDS[x.board]);
+        if (x.nights) meta.push("🌙 " + x.nights + " " + (x.nights === 1 ? "noc" : "nocy"));
+        if (x.when) meta.push("📅 " + x.when);
+        if (x.from) meta.push("🛫 " + x.from);
+        return '<div class="hi-card">' +
+          (x.image ? '<img class="hi-photo" loading="lazy" src="' + escapeHtml(x.image) + '" alt="' + escapeHtml(x.hotel || "") + '">' : "") +
+          '<div class="hi-body"><div class="hi-name">' + escapeHtml(x.hotel || "Oferta") + (x.stars ? ' <span class="hi-stars">' + starsText(x.stars) + "</span>" : "") + "</div>" +
+          (meta.length ? '<div class="hi-meta">' + meta.map(function (m) { return "<span>" + escapeHtml(m) + "</span>"; }).join("") + "</div>" : "") +
+          (x.note ? '<div class="hi-note">' + escapeHtml(x.note) + "</div>" : "") + "</div>" +
+          '<div class="hi-buy">' + (typeof x.price === "number" ? '<div class="hi-price mono">od ' + escapeHtml(formatPrice(x.price, o.currency)) + "<small> / os.</small></div>" : "") +
+          (url ? '<a class="btn primary small" target="_blank" rel="noopener sponsored" href="' + escapeHtml(tdConvert(url) || url) + '">Zobacz ofertę →</a>' : "") + "</div></div>";
+      }).join("") + "</div></div>";
   }
   function holidayBoxHtml(o) {
     var h = o.holiday; if (!h || o.category !== "holidays") return "";
@@ -2134,6 +2181,27 @@
     }).join("");
   }
 
+  function holidayItemRowHtml(x) {
+    x = x || {};
+    var ai = x._ai ? " ai" : "";
+    return '<div class="hi-row' + ai + '">' +
+      '<div class="hi-top"><b class="hi-n"></b><span class="hi-aitag"' + (x._ai ? "" : " hidden") + '>✨ z AI — sprawdź</span><button type="button" class="btn ghost small hi-remove" title="Usuń ofertę">✕</button></div>' +
+      '<div class="hi-grid">' +
+        '<input class="hi-hotel" aria-label="Hotel" placeholder="Hotel" value="' + escapeHtml(x.hotel || "") + '">' +
+        '<input class="hi-resort" aria-label="Miejscowość" placeholder="Miejscowość / rejon" value="' + escapeHtml(x.resort || "") + '">' +
+        '<select class="hi-stars" aria-label="Gwiazdki"><option value="">★ —</option>' + [1, 2, 3, 4, 5].map(function (n) { return '<option value="' + n + '"' + (String(x.stars) === String(n) ? " selected" : "") + ">" + starsText(n) + "</option>"; }).join("") + "</select>" +
+        '<select class="hi-board" aria-label="Wyżywienie"><option value="">Wyżywienie —</option>' + Object.keys(HOLIDAY_BOARDS).map(function (k) { return '<option value="' + k + '"' + (x.board === k ? " selected" : "") + ">" + HOLIDAY_BOARDS[k] + "</option>"; }).join("") + "</select>" +
+        '<input class="hi-nights" type="number" min="1" max="60" aria-label="Noce" placeholder="Noce" value="' + escapeHtml(x.nights || "") + '">' +
+        '<input class="hi-from" aria-label="Wylot z" placeholder="Wylot z" value="' + escapeHtml(x.from || "") + '">' +
+        '<input class="hi-when" aria-label="Termin" placeholder="Termin, np. 12–19.01.2027" value="' + escapeHtml(x.when || "") + '">' +
+        '<input class="hi-price" type="number" min="0" step="1" aria-label="Cena za osobę" placeholder="Cena za os. (zł)" value="' + (typeof x.price === "number" ? x.price : "") + '">' +
+        '<input class="hi-url" type="url" aria-label="Link do oferty" placeholder="Link do oferty (https://…)" value="' + escapeHtml(x.url || "") + '">' +
+        '<input class="hi-note" aria-label="Uwaga" placeholder="Uwaga (opcjonalnie)" value="' + escapeHtml(x.note || "") + '">' +
+      "</div>" +
+      '<div class="hi-photo-row"><input type="hidden" class="hi-img" value="' + escapeHtml(x.image || "") + '"><span class="hi-thumb">' + (x.image ? '<img src="' + escapeHtml(x.image) + '" alt="">' : "") + "</span>" +
+        '<label class="hint">Zdjęcie hotelu (opcjonalnie): <input type="file" class="hi-file" accept="image/*"></label> <button type="button" class="btn ghost small hi-img-remove"' + (x.image ? "" : " hidden") + ">Usuń zdjęcie</button></div>" +
+    "</div>";
+  }
   function holidayAdminHtml(draft) {
     var h = draft.holiday || {};
     var chk = function (id, v, label) { return '<label class="h-check"><input type="checkbox" id="' + id + '"' + (v ? " checked" : "") + "> " + label + "</label>"; };
@@ -2154,6 +2222,16 @@
         '<div class="field"><label for="h_from">Wylot z</label><input id="h_from" value="' + escapeHtml(h.from || "") + '" placeholder="np. Katowice, Warszawa"></div>' +
       "</div>" +
       '<div class="h-checks"><span>W cenie:</span>' + chk("h_flight", h.flight, "✈️ przelot") + chk("h_transfer", h.transfer, "🚌 transfer") + chk("h_baggage", h.baggage, "🧳 bagaż") + "</div>" +
+      '<div class="hi-admin"><div class="holiday-admin-head" style="font-size:15px">📋 Lista ofert w tym ogłoszeniu <small>(np. „Kenia od 3000 zł” i pod spodem 5–10 hoteli)</small></div>' +
+        '<div class="hi-ai"><b>✨ Wczytaj listę ze zrzutów ekranu (AI)</b>' +
+          '<span class="hint">Wybierz 1–4 zrzuty ze strony biura (lista hoteli z cenami). AI uzupełni hotel, gwiazdki, wyżywienie, noce, termin i cenę. <b>Sprawdź i popraw dane</b> — AI może się pomylić; wiersze z AI są oznaczone na żółto.</span>' +
+          '<div class="hi-ai-row"><input type="file" id="h_aiFiles" accept="image/*" multiple> <button type="button" class="btn ghost small" id="h_aiBtn">✨ Odczytaj oferty</button> <span id="h_aiMsg" class="hint"></span></div></div>' +
+        '<div id="h_items">' + (h.items || []).map(holidayItemRowHtml).join("") + "</div>" +
+        '<div class="hi-actions"><button type="button" class="btn ghost small" id="h_addItem">+ Dodaj ofertę ręcznie</button> ' +
+          '<button type="button" class="btn ghost small" id="h_sortItems">↕ Sortuj od najtańszych</button> ' +
+          '<button type="button" class="btn ghost small" id="h_lowest">💰 Ustaw cenę ogłoszenia na najniższą z listy</button></div>' +
+        '<span class="hint">Przycisk „Zobacz ofertę” przy hotelu używa jego linku; gdy go nie wpiszesz, użyje głównego linku ogłoszenia. Linki biur z listy (np. Exim) zamienią się na afiliacyjne przy zapisie.</span>' +
+      "</div>" +
       '<span class="hint">Cenę wpisz poniżej jako „Cena aktualna” (za osobę); w „Rozbiciu ceny” ustawisz liczbę osób i cenę za całość.</span>' +
     "</div>";
   }
@@ -3981,11 +4059,84 @@
     byId("advBox").addEventListener("input", function (e) { if (e.target.classList && e.target.classList.contains("lr-url")) holidayStatus(); });
     byId("advBox").addEventListener("change", function (e) { if (e.target.classList && e.target.classList.contains("lr-url")) holidayStatus(); });
     holidayToggle();
+    // --- lista ofert z biura (wiele hoteli w jednym ogłoszeniu) + odczyt ze zrzutów przez AI ---
+    var hiBox = byId("h_items");
+    function hiRenumber() { qsa(".hi-row", hiBox).forEach(function (r, i) { qs(".hi-n", r).textContent = "Oferta " + (i + 1); }); }
+    function hiAdd(x) { var t = document.createElement("div"); t.innerHTML = holidayItemRowHtml(x); hiBox.appendChild(t.firstChild); hiRenumber(); }
+    function hiPrice(r) { var v = parseFloat(qs(".hi-price", r).value); return isNaN(v) ? null : v; }
+    function hiLowest() { var m = null; qsa(".hi-row", hiBox).forEach(function (r) { var v = hiPrice(r); if (v !== null && (m === null || v < m)) m = v; }); return m; }
+    hiRenumber();
+    byId("h_addItem").addEventListener("click", function () { if (qsa(".hi-row", hiBox).length >= 15) { formMsg("err", "Maksymalnie 15 ofert w jednym ogłoszeniu."); return; } hiAdd({}); });
+    byId("h_sortItems").addEventListener("click", function () {
+      var rows = qsa(".hi-row", hiBox);
+      rows.map(function (r, i) { return { r: r, i: i, p: hiPrice(r) }; }).sort(function (a, b) { return (a.p === null) - (b.p === null) || (a.p || 0) - (b.p || 0) || a.i - b.i; }).forEach(function (o) { hiBox.appendChild(o.r); });
+      hiRenumber();
+    });
+    byId("h_lowest").addEventListener("click", function () {
+      var m = hiLowest();
+      if (m === null) { byId("h_aiMsg").textContent = "Najpierw wpisz ceny przy ofertach."; return; }
+      byId("f_currentPrice").value = m; byId("f_currentPrice").dispatchEvent(new Event("input", { bubbles: true }));
+      byId("h_aiMsg").textContent = "Cena ogłoszenia: " + formatPrice(m, byId("f_currency").value) + " (najniższa z listy).";
+    });
+    hiBox.addEventListener("click", function (e) {
+      var rm = e.target.closest(".hi-remove"); if (rm) { rm.closest(".hi-row").remove(); hiRenumber(); return; }
+      var ri = e.target.closest(".hi-img-remove");
+      if (ri) { var row = ri.closest(".hi-row"); qs(".hi-img", row).value = ""; qs(".hi-thumb", row).innerHTML = ""; qs(".hi-file", row).value = ""; ri.hidden = true; }
+    });
+    hiBox.addEventListener("input", function (e) {
+      var row = e.target.closest && e.target.closest(".hi-row"); if (!row) return;
+      row.classList.remove("ai"); qs(".hi-aitag", row).hidden = true; // po ręcznej poprawce znika oznaczenie AI
+    });
+    hiBox.addEventListener("change", function (e) {
+      if (!e.target.classList.contains("hi-file")) return;
+      var row = e.target.closest(".hi-row"), f = e.target.files && e.target.files[0];
+      if (!f) return;
+      if (!/^image\//.test(f.type)) { formMsg("err", "Wybierz plik graficzny."); return; }
+      readAndShrinkImage(f, function (url) {
+        if (!url) { formMsg("err", "Nie udało się wczytać zdjęcia."); return; }
+        qs(".hi-img", row).value = url; qs(".hi-thumb", row).innerHTML = '<img src="' + escapeHtml(url) + '" alt="">'; qs(".hi-img-remove", row).hidden = false;
+      }, 900, 0.8);
+    });
+    byId("h_aiBtn").addEventListener("click", function () {
+      var btn = byId("h_aiBtn"), msg = byId("h_aiMsg"), files = Array.prototype.slice.call(byId("h_aiFiles").files || [], 0, 4);
+      if (!files.length) { msg.textContent = "Najpierw wybierz 1–4 zrzuty ekranu z listą ofert."; return; }
+      var old = btn.textContent; btn.disabled = true; btn.textContent = "Czytam zrzuty…"; msg.textContent = "";
+      Promise.all(files.map(function (f) { return new Promise(function (res) { readAndShrinkImage(f, res, 1600, 0.86); }); })).then(function (urls) {
+        urls = urls.filter(Boolean);
+        if (!urls.length) throw new Error("Nie udało się wczytać zrzutów.");
+        return SB.callFn("describe", { mode: "holidays", images: urls, destination: byId("f_destination").value.trim(), agency: byId("h_agency").value.trim() });
+      }).then(function (r) {
+        if (!r || !Array.isArray(r.items)) throw new Error("Funkcja „describe” w Supabase jest w starej wersji — wklej nowy plik index.ts (INSTRUKCJA.md) i kliknij Deploy.");
+        var room = 15 - qsa(".hi-row", hiBox).length, add = r.items.slice(0, Math.max(0, room));
+        add.forEach(function (x) { hiAdd({ hotel: x.hotel, resort: x.resort, stars: x.stars, board: x.board, nights: x.nights, from: x.from, when: x.when, price: x.price, note: x.note, _ai: true }); });
+        if (r.destination && !byId("f_destination").value.trim()) byId("f_destination").value = r.destination;
+        if (r.agency && !byId("h_agency").value.trim()) byId("h_agency").value = r.agency;
+        var low = hiLowest(), dest = byId("f_destination").value.trim();
+        if (low !== null && !byId("f_currentPrice").value) { byId("f_currentPrice").value = low; }
+        if (!byId("f_title").value.trim() && dest && low !== null) byId("f_title").value = dest + " – wczasy z biura od " + formatPrice(low, byId("f_currency").value);
+        ["f_currentPrice", "f_title", "f_destination"].forEach(function (id) { byId(id).dispatchEvent(new Event("input", { bubbles: true })); });
+        msg.textContent = "✔ Odczytano ofert: " + add.length + ". Sprawdź żółte wiersze i popraw ewentualne błędy.";
+        byId("h_aiFiles").value = "";
+      }).then(function () { btn.disabled = false; btn.textContent = old; }, function (err) {
+        btn.disabled = false; btn.textContent = old; msg.textContent = "❌ " + ((err && err.message) || "Nie udało się odczytać ofert.");
+      });
+    });
+    function readHolidayItems() {
+      return qsa(".hi-row", hiBox).map(function (r) {
+        var p = hiPrice(r), url = qs(".hi-url", r).value.trim(), st = parseInt(qs(".hi-stars", r).value, 10), nn = parseInt(qs(".hi-nights", r).value, 10);
+        var it = { hotel: qs(".hi-hotel", r).value.trim(), resort: qs(".hi-resort", r).value.trim(), stars: st || undefined, board: qs(".hi-board", r).value || undefined,
+          nights: nn || undefined, from: qs(".hi-from", r).value.trim(), when: qs(".hi-when", r).value.trim(), price: p === null ? undefined : p,
+          url: url ? (tdConvert(url) || url) : "", note: qs(".hi-note", r).value.trim(), image: qs(".hi-img", r).value };
+        Object.keys(it).forEach(function (k) { if (it[k] === "" || it[k] === undefined) delete it[k]; });
+        return it;
+      }).filter(function (it) { return it.hotel || it.url || typeof it.price === "number"; });
+    }
     function readHoliday() {
       if (byId("f_category").value !== "holidays") return undefined;
       var h = { agency: byId("h_agency").value.trim(), hotel: byId("h_hotel").value.trim(), stars: byId("h_stars").value, board: byId("h_board").value,
         nights: byId("h_nights").value, from: byId("h_from").value.trim(), flight: byId("h_flight").checked, transfer: byId("h_transfer").checked, baggage: byId("h_baggage").checked };
-      var any = h.agency || h.hotel || h.stars || h.board || h.nights || h.from || h.flight || h.transfer || h.baggage;
+      var items = readHolidayItems(); if (items.length) h.items = items;
+      var any = h.agency || h.hotel || h.stars || h.board || h.nights || h.from || h.flight || h.transfer || h.baggage || items.length;
       return any ? h : undefined;
     }
 
