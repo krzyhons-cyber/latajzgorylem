@@ -1921,7 +1921,7 @@
   }
   // ---- MyLead i inne sieci: własne linki śledzące (Ustawienia → „domena;link śledzący”) ----
   // Jeśli link zawiera {url}, wstawiamy w to miejsce zakodowany adres strony (deeplink); bez {url} wszystkie linki do domeny prowadzą na Twój link śledzący (strona docelowa kampanii).
-  var MY_DEFAULT_RULES = "esky.pl;https://link-open.space/a/QWVP2Ioz9gfOAMX";
+  var MY_DEFAULT_RULES = "esky.pl;https://link-open.space/a/QWVP2Ioz9gfOAMX?dl_url={url}";
   function myRules() {
     var st = state.settings || {}, raw = typeof st.myRules === "string" ? st.myRules : MY_DEFAULT_RULES;
     return String(raw).split(/\n+/).map(function (l) {
