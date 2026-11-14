@@ -1934,7 +1934,7 @@
     var host = url.replace(/^https?:\/\//i, "").replace(/[\/?#].*$/, "").toLowerCase().replace(/^www\d*\./, ""), rules = myRules();
     for (var i = 0; i < rules.length; i++) {
       var d = rules[i].domain;
-      if (host === d || host.slice(-(d.length + 1)) === "." + d) return rules[i].tpl.indexOf("{url}") >= 0 ? rules[i].tpl.split("{url}").join(encodeURIComponent(url)) : rules[i].tpl;
+      if (host === d || host.slice(-(d.length + 1)) === "." + d) return rules[i].tpl.indexOf("{url}") >= 0 ? rules[i].tpl.split("{url}").join(encodeURIComponent(url.replace(/\+/g, "%2B").replace(/\[/g, "%5B").replace(/\]/g, "%5D"))) : rules[i].tpl;
     }
     return null;
   }
