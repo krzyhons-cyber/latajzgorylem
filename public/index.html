@@ -2452,8 +2452,23 @@
     if (out) out.hidden = !canEditPage;
   }
 
+  var adminTab = "offers";
+  function adminTabsHtml() {
+    return '<div class="admin-tabs" style="display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap">' +
+      [["offers", "📋 Oferty i ustawienia"], ["links", "🔗 Generator linków"]].map(function (t) {
+        return '<button type="button" class="btn small' + (adminTab === t[0] ? "" : " ghost") + '" data-admintab="' + t[0] + '">' + t[1] + "</button>";
+      }).join("") + "</div>";
+  }
+  function wireAdminTabs() {
+    qsa("[data-admintab]").forEach(function (b) { b.addEventListener("click", function () { adminTab = b.getAttribute("data-admintab"); renderAdmin(true); }); });
+  }
   function renderAdmin(canEdit) {
     if (!canEdit) { renderLogin(); return; }
+    if (adminTab === "links") {
+      byId("view").innerHTML = adminTabsHtml() + renderLinkGenerator();
+      wireAdminTabs(); wireLinkGenerator();
+      return;
+    }
     var draft = emptyDraft();
     var editing = false;
     if (adminEditingSlug) {
@@ -2476,7 +2491,7 @@
     adminFlash = null;
 
     byId("view").innerHTML =
-      '<div class="admin-grid"><div>' +
+      adminTabsHtml() + '<div class="admin-grid"><div>' +
         (flash ? '<div class="msg ok">' + flash + "</div>" : "") +
         '<details class="adv-box main-box" id="advBox" open><summary>' + (editing ? "✏️ Edycja oferty" : "➕ Dodaj ofertę — pełny formularz") + "</summary>" + renderAdminForm(draft) + "</details>" +
         (editing ? "" : '<details class="adv-box quick-box" id="quickBox"><summary>⚡ Szybkie dodawanie oferty (opcjonalnie — kliknij, aby rozwinąć)</summary>' + renderQuickAdd() + "</details>") +
@@ -2487,7 +2502,64 @@
     wireQuickAdd();
     wireRequiredFields();
     wireSubscribers();
+    wireAdminTabs();
     loadAdminStats();
+  }
+
+
+  /* ===================== ADMIN: AFFILIATE LINK GENERATOR ================== */
+  function linkNetworkLabel(url, out) {
+    if (/link-open\.space|mylead/i.test(out)) return "MyLead";
+    if (/tradedoubler/i.test(out)) return "Tradedoubler";
+    if (/tp\.media|tpk\.lv|tp\.st|travelpayouts/i.test(out)) return "Travelpayouts";
+    return "";
+  }
+  function renderLinkGenerator() {
+    return '<div id="lgBox"><div class="card" style="padding:16px;max-width:760px"><h2 style="margin:0 0 6px;font-size:18px">🔗 Generator linków afiliacyjnych</h2><p class="muted" style="margin:0 0 8px;font-size:13px">Wklej zwykły link do oferty (po jednym w linii). Dostaniesz gotowy link afiliacyjny do skopiowania. Działa wg reguł z Ustawień (Tradedoubler, MyLead, Travelpayouts).</p>' +
+      '<textarea id="lg_in" rows="3" placeholder="https://www.esky.pl/...&#10;https://www.tui.pl/...&#10;https://www.exim.pl/..."></textarea>' +
+      '<div class="field"><label for="lg_sub">Znacznik klienta/kampanii (opcjonalnie, tylko dla Travelpayouts)</label><input id="lg_sub" type="text" maxlength="40" placeholder="np. kasia-praga"></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="lg_go">Generuj link</button><button type="button" class="btn ghost" id="lg_copyAll" hidden>Kopiuj wszystkie</button></div>' +
+      '<div id="lg_out" style="margin-top:10px"></div></div></div>';
+  }
+  function wireLinkGenerator() {
+    var go = byId("lg_go"); if (!go) return;
+    var all = byId("lg_copyAll"), outBox = byId("lg_out"), results = [];
+    function cp(text, btn) {
+      var o = btn.textContent, done = function () { btn.textContent = "Skopiowano!"; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+      else { fallbackCopy(text); done(); }
+    }
+    go.addEventListener("click", function () {
+      var urls = byId("lg_in").value.split(/\s+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      var sub = byId("lg_sub").value.trim();
+      results = []; outBox.innerHTML = ""; all.hidden = true;
+      if (!urls.length) { outBox.innerHTML = '<div class="msg err">Wklej przynajmniej jeden link.</div>'; return; }
+      go.disabled = true;
+      var chain = Promise.resolve();
+      urls.forEach(function (u, i) {
+        chain = chain.then(function () {
+          if (!/^https?:\/\//i.test(u)) return { u: u, err: "To nie jest pełny link (https://…)." };
+          return convertAffiliateLink(u, sub).then(function (out) { return { u: u, out: out }; }, function (e) { return { u: u, err: (e && e.message) || "Nie udało się." }; });
+        }).then(function (r) {
+          results.push(r);
+          var row = document.createElement("div"); row.className = "lg-row"; row.style.cssText = "margin:8px 0;padding:10px;border:1px solid var(--line,#d7dde6);border-radius:10px";
+          if (r.err) row.innerHTML = '<div style="font-size:12px;color:#c0392b">' + escapeHtml(r.err) + '</div><div style="font-size:12px;word-break:break-all" class="muted">' + escapeHtml(r.u) + "</div>";
+          else {
+            var net = linkNetworkLabel(r.u, r.out), same = r.out === r.u;
+            row.innerHTML = '<div style="font-size:12px" class="muted">' + (same ? "Już jest linkiem partnerskim" : "✅ Link afiliacyjny" + (net ? " (" + net + ")" : "")) + '</div>' +
+              '<input type="text" readonly value="' + escapeHtml(r.out) + '" style="width:100%;margin:6px 0" onclick="this.select()">' +
+              '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn small">Kopiuj</button><a class="btn ghost small" href="' + escapeHtml(r.out) + '" target="_blank" rel="noopener">Testuj</a></div>';
+            row.querySelector("button").addEventListener("click", function (e) { cp(r.out, e.currentTarget); });
+          }
+          outBox.appendChild(row);
+        });
+      });
+      chain.then(function () {
+        go.disabled = false;
+        var okOnes = results.filter(function (r) { return r.out; });
+        if (okOnes.length > 1) { all.hidden = false; all.onclick = function () { cp(okOnes.map(function (r) { return r.out; }).join("\n"), all); }; }
+      });
+    });
   }
 
   /* ===================== ADMIN: QUICK ADD + FLIGHT FINDER ================== */
