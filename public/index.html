@@ -2163,6 +2163,7 @@
       '<div class="po-box" style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px"><b style="font-size:13px">🏨 Alternatywne noclegi (opcjonalnie)</b>' +
         '<span class="hint" style="display:block;margin:4px 0 6px">Dodaj kilka wariantów noclegu (np. 2★, 3★, 4★). Lot i pozostałe pozycje powyżej zostają bez zmian, a strona policzy łączną cenę dla każdej opcji osobno. Gdy są opcje, pozycje „Nocleg” w stałych kosztach są pomijane.</span>' +
         '<div class="po-ai" style="margin:6px 0 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="file" id="' + P + '_aiFiles" accept="image/*" multiple style="max-width:100%"> <button type="button" class="btn small" data-po-ai="1">✨ Uzupełnij noclegi ze zrzutu (AI)</button></div>' +
+        '<div class="paste-zone po-paste" tabindex="0" style="margin:0 0 6px">📋 Kliknij tutaj i wciśnij <b>Ctrl+V</b>, aby wkleić zrzut ekranu noclegu (możesz wkleić kilka, maks. 4), potem kliknij „✨ Uzupełnij…”</div>' +
         '<div id="' + P + '_aiMsg" class="hint" role="status" style="margin-bottom:6px"></div>' +
         '<div id="' + P + '_popts">' + ((pr && pr.options) || []).map(pricingOptionRowHtml).join("") + "</div>" +
         '<button type="button" class="btn ghost small" data-po-add="1">+ Dodaj alternatywny nocleg</button></div>' +
@@ -2411,6 +2412,7 @@
       '<div class="hi-admin"><div class="holiday-admin-head" style="font-size:15px">📋 Lista ofert w tym ogłoszeniu <small>(np. „Kenia od 3000 zł” i pod spodem 5–10 hoteli)</small></div>' +
         '<div class="hi-ai"><b>✨ Wczytaj listę ze zrzutów ekranu (AI)</b>' +
           '<span class="hint">Wybierz 1–4 zrzuty ze strony biura (lista hoteli z cenami). AI uzupełni hotel, gwiazdki, wyżywienie, noce, termin i cenę a zrzut ekranu zostanie dodany do oferty jako miniaturka (widać na nim cenę z dnia publikacji). Odczyt rusza sam po wybraniu plików. <b>Sprawdź i popraw dane</b> — AI może się pomylić; wiersze z AI są oznaczone na żółto.</span>' +
+          '<div class="paste-zone hi-paste" tabindex="0" style="margin:6px 0">📋 Kliknij tutaj i wciśnij <b>Ctrl+V</b>, aby wkleić zrzut ekranu — AI odczyta go od razu</div>' +
           '<div class="hi-ai-row"><input type="file" id="h_aiFiles" accept="image/*" multiple> <button type="button" class="btn ghost small" id="h_aiBtn">✨ Odczytaj oferty</button> <span id="h_aiMsg" class="hint"></span></div></div>' +
         '<div id="h_items">' + (h.items || []).map(holidayItemRowHtml).join("") + "</div>" +
         '<div class="hi-actions"><button type="button" class="btn ghost small" id="h_addItem">+ Dodaj ofertę ręcznie</button> ' +
@@ -3657,6 +3659,30 @@
 
     var ae = document.activeElement;
     var closest = function (sel) { return ae && ae.closest ? ae.closest(sel) : null; };
+    // zrzut noclegu (AI w „Alternatywnych noclegach”): dodaj do pola plików (do 4), odczyt rusza przyciskiem
+    var lodgeBox = closest(".po-box");
+    if (lodgeBox) {
+      var linp = qs('input[type="file"][id$="_aiFiles"]', lodgeBox), lmsg = linp && byId(linp.id.replace("_aiFiles", "_aiMsg"));
+      if (linp) {
+        try {
+          var ldt = new DataTransfer();
+          Array.prototype.slice.call(linp.files || [], 0, 3).forEach(function (x) { ldt.items.add(x); });
+          ldt.items.add(new File([file], "wklejony-" + (ldt.files.length + 1) + ".png", { type: file.type || "image/png" }));
+          linp.files = ldt.files;
+          if (lmsg) lmsg.textContent = "📋 Wklejono zrzuty: " + ldt.files.length + " (maks. 4). Kliknij „✨ Uzupełnij noclegi ze zrzutu (AI)”.";
+        } catch (err2) { if (lmsg) lmsg.textContent = "Ta przeglądarka nie pozwala wkleić zrzutu tutaj — użyj przycisku wyboru pliku."; }
+      }
+      return;
+    }
+    // zrzut listy ofert z biura: wstaw i od razu uruchom odczyt AI
+    if (closest(".hi-ai") && byId("h_aiFiles")) {
+      try {
+        var hdt = new DataTransfer(); hdt.items.add(new File([file], "wklejony.png", { type: file.type || "image/png" }));
+        byId("h_aiFiles").files = hdt.files;
+        byId("h_aiFiles").dispatchEvent(new Event("change", { bubbles: true }));
+      } catch (err3) { byId("h_aiMsg").textContent = "Ta przeglądarka nie pozwala wkleić zrzutu tutaj — użyj przycisku wyboru pliku."; }
+      return;
+    }
     // photo of the offer (thumbnail): hand the pasted image to the file input
     if ((closest(".photo-field") || (closest("#advBox") && !closest(".extra-row"))) && byId("f_imageFile")) {
       try {
