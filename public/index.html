@@ -503,6 +503,10 @@
     ".pricing-title{font-weight:800;font-size:13.5px;margin-bottom:8px;color:#0b2447}",
     ".pr-row,.pr-sum,.pr-pp{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:13.5px;padding:6px 0}",
     ".pr-row{border-top:1px solid var(--line)}.pr-row small{display:block;color:var(--ink-dim);font-size:12px;margin-top:1px}",
+    ".pr-opt{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:#fff;color:#0b1b33}.pr-opt.best{border-color:#16a34a;box-shadow:0 0 0 1px #16a34a inset}",
+    ".pr-opt-h{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:14px}.pr-badge{background:#dcfce7;color:#166534;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px}",
+    ".pr-opt-s{font-size:12.5px;color:#5b6b82;margin:2px 0 4px}.pr-opt-t{font-size:17px;font-weight:800}.pr-opt-t small{font-size:12.5px;color:#0a5aa6;font-weight:700}",
+    ".po-row{display:grid;grid-template-columns:1.6fr 90px 100px 130px auto;gap:6px;margin:6px 0}@media (max-width:700px){.po-row{grid-template-columns:1fr 1fr}}",
     ".pr-sum{border-top:2px solid #0b2447;font-weight:800;font-size:15px}.pr-pp{font-weight:800;font-size:15px;color:#0a5aa6}",
     ".pi-row{display:grid;grid-template-columns:110px 1fr 100px 200px auto;gap:8px;margin-bottom:8px;align-items:center}.pi-row input,.pi-row select{min-width:0}",
     "@media (max-width:760px){.pi-row{grid-template-columns:1fr 1fr}.pi-row .pi-label{grid-column:1 / -1}}",
@@ -785,28 +789,43 @@
   };
   function computePricing(pr) {
     var people = Math.max(1, Math.round(Number(pr.people)) || 1), total = 0;
-    var items = (pr.items || []).filter(function (x) { return x && typeof x.amount === "number" && !isNaN(x.amount) && x.amount >= 0; });
+    var valid = function (x) { return x && typeof x.amount === "number" && !isNaN(x.amount) && x.amount >= 0; };
+    var opts = (pr.options || []).filter(valid);
+    // gdy są alternatywne noclegi, pozycje „Nocleg” w stałych kosztach są pomijane (nocleg wybiera się z opcji)
+    var items = (pr.items || []).filter(valid).filter(function (x) { return !(opts.length && x.kind === "hotel"); });
     items.forEach(function (x) { total += x.basis === "person" ? x.amount * people : x.amount; });
+    var base = total;
+    var options = opts.map(function (o, i) {
+      var t = base + (o.basis === "person" ? o.amount * people : o.amount);
+      return { label: o.label || ("Opcja " + (i + 1)), stars: o.stars, amount: o.amount, basis: o.basis === "person" ? "person" : "total", total: t, perPerson: t / people };
+    });
+    var cheapest = null;
+    options.forEach(function (o) { if (!cheapest || o.total < cheapest.total) cheapest = o; });
+    if (cheapest) total = cheapest.total;
     var hl = pr.headline === "total" || pr.headline === "person" ? pr.headline : "manual";
-    return { people: people, items: items, total: total, perPerson: total / people, headline: hl };
+    return { people: people, items: items, total: total, perPerson: total / people, headline: hl, base: base, options: options, cheapest: cheapest };
   }
   function pricingOf(o) {
-    if (!o || !o.pricing || !o.pricing.items || !o.pricing.items.length) return null;
+    if (!o || !o.pricing) return null;
+    var hasI = o.pricing.items && o.pricing.items.length, hasO = o.pricing.options && o.pricing.options.length;
+    if (!hasI && !hasO) return null;
     var c = computePricing(o.pricing);
-    return c.items.length ? c : null;
+    return c.items.length || c.options.length ? c : null;
   }
   // tekst przy dużej cenie: "na osobę" / "dla 2 osób"
   function priceUnit(o) {
     var c = pricingOf(o);
     if (!c) return "";
-    if (c.headline === "person") return "na osobę";
-    if (c.headline === "total" && c.people > 1) return "dla " + c.people + " osób";
-    return "";
+    var tail = c.options.length > 1 ? " · najtańsza opcja" : "";
+    if (c.headline === "person") return "na osobę" + tail;
+    if (c.headline === "total" && c.people > 1) return "dla " + c.people + " osób" + tail;
+    return tail ? tail.replace(" · ", "") : "";
   }
   function priceWithUnit(o) { var u = priceUnit(o); return formatPrice(o.currentPrice, o.currency) + (u ? " " + u : ""); }
   function pricingLine(o) {
     var c = pricingOf(o);
     if (!c || c.people < 2) return "";
+    if (c.options.length > 1) return "od " + formatPrice(c.total, o.currency) + " dla " + c.people + " osób · od " + formatPrice(c.perPerson, o.currency) + " na osobę (najtańsza opcja noclegu)";
     return formatPrice(c.total, o.currency) + " dla " + c.people + " osób · " + formatPrice(c.perPerson, o.currency) + " na osobę";
   }
   function priceUnitHtml(o) { var u = priceUnit(o); return u ? ' <small class="price-unit">' + escapeHtml(u) + "</small>" : ""; }
@@ -822,6 +841,17 @@
       var line = x.basis === "person" ? x.amount * c.people : x.amount;
       return '<div class="pr-row"><span>' + k.icon + " " + escapeHtml(k.label + (x.label ? " — " + x.label : "")) + "<small>" + escapeHtml(sub) + '</small></span><b class="mono">' + formatPrice(line, cur) + "</b></div>";
     }).join("");
+    if (c.options.length) {
+      var opts = c.options.map(function (op) {
+        var best = c.cheapest === op && c.options.length > 1;
+        return '<div class="pr-opt' + (best ? " best" : "") + '"><div class="pr-opt-h"><b>' + escapeHtml(op.label) + (op.stars ? " " + starsText(op.stars).replace(/☆/g, "") : "") + "</b>" + (best ? '<span class="pr-badge">najtańsza</span>' : "") + "</div>" +
+          '<div class="pr-opt-s"><span>nocleg: ' + formatPrice(op.basis === "person" ? op.amount * c.people : op.amount, cur) + "</span></div>" +
+          '<div class="pr-opt-t"><b class="mono">' + formatPrice(op.total, cur) + "</b>" + (c.people > 1 ? ' <small>' + (c.people) + " os. · " + formatPrice(op.perPerson, cur) + " na osobę</small>" : "") + "</div></div>";
+      }).join("");
+      var baseRows = rows ? rows + '<div class="pr-sum"><span>Stałe koszty (bez noclegu)</span><b class="mono">' + formatPrice(c.base, cur) + "</b></div>" : "";
+      return '<div class="pricing-box"><div class="pricing-title">Z czego składa się cena</div>' + baseRows +
+        '<div class="pricing-title" style="margin-top:12px">🏨 Wybierz nocleg — cena całości dla ' + c.people + " " + (c.people === 1 ? "osoby" : "osób") + "</div>" + opts + "</div>";
+    }
     return '<div class="pricing-box"><div class="pricing-title">Z czego składa się cena</div>' + rows +
       '<div class="pr-sum"><span>Razem' + (c.people > 1 ? " dla " + c.people + " osób" : "") + '</span><b class="mono">' + formatPrice(c.total, cur) + "</b></div>" +
       (c.people > 1 ? '<div class="pr-pp"><span>Na osobę</span><b class="mono">' + formatPrice(c.perPerson, cur) + "</b></div>" : "") + "</div>";
@@ -974,7 +1004,8 @@
     if (pc) {
       var comp = computePricing(pc);
       out.pricing = pc.items.map(function (it) { return (PRICE_KINDS[it.kind] ? PRICE_KINDS[it.kind].label : it.kind) + (it.label ? " (" + it.label + ")" : "") + ": " + it.amount + " zł " + (it.basis === "person" ? "za osobę" : "za wszystkich") + (pc.people > 1 && it.basis !== "person" ? "" : ""); }).join("; ") +
-        "; liczba osób: " + pc.people + "; razem: " + Math.round(comp.total) + " zł (" + Math.round(comp.perPerson) + " zł na osobę)";
+        "; liczba osób: " + pc.people + "; razem: " + Math.round(comp.total) + " zł (" + Math.round(comp.perPerson) + " zł na osobę)" +
+        (comp.options.length ? "; opcje noclegu (łączna cena z lotem): " + comp.options.map(function (o) { return o.label + (o.stars ? " " + o.stars + "★" : "") + " – " + Math.round(o.total) + " zł (" + Math.round(o.perPerson) + " zł na osobę)"; }).join(", ") : "");
     }
     var seen = {}; out.images = out.images.filter(function (u) { if (!u || seen[u] || !/^(https:\/\/|data:image\/)/.test(u)) return false; seen[u] = 1; return true; }).slice(0, 4);
     return out;
@@ -2049,8 +2080,17 @@
       '<select class="pi-basis" aria-label="Za kogo jest ta kwota"><option value="person"' + (basis === "person" ? " selected" : "") + '>za osobę</option><option value="total"' + (basis === "total" ? " selected" : "") + ">za całość (np. nocleg za 2 os.)</option></select>" +
       '<button type="button" class="btn ghost small pi-remove" title="Usuń pozycję">✕</button></div>';
   }
+  function pricingOptionRowHtml(x) {
+    x = x || {};
+    var basis = x.basis === "person" ? "person" : "total";
+    return '<div class="po-row"><input class="po-label" placeholder="Nazwa opcji (np. Hotel Sol 3★)" value="' + escapeHtml(x.label || "") + '">' +
+      '<select class="po-stars" aria-label="Gwiazdki"><option value="">★ —</option>' + [1, 2, 3, 4, 5].map(function (n) { return '<option value="' + n + '"' + (String(x.stars) === String(n) ? " selected" : "") + ">" + n + "★</option>"; }).join("") + "</select>" +
+      '<input class="po-amount" type="number" min="0" step="1" placeholder="Kwota noclegu" value="' + escapeHtml(x.amount === undefined || x.amount === null ? "" : x.amount) + '">' +
+      '<select class="po-basis" aria-label="Za kogo jest ta kwota"><option value="total"' + (basis === "total" ? " selected" : "") + '>za całość</option><option value="person"' + (basis === "person" ? " selected" : "") + ">za osobę</option></select>" +
+      '<button type="button" class="btn ghost small po-remove" title="Usuń opcję">✕</button></div>';
+  }
   function pricingFieldsHtml(P, pr) {
-    var has = pr && pr.items && pr.items.length;
+    var has = pr && ((pr.items && pr.items.length) || (pr.options && pr.options.length));
     var hl = pr && (pr.headline === "total" || pr.headline === "person" || pr.headline === "manual") ? pr.headline : "auto";
     var opt = function (v, t) { return '<option value="' + v + '"' + (v === hl ? " selected" : "") + ">" + t + "</option>"; };
     return '<details class="finder pricing-fields" id="' + P + '_pricing"' + (has ? " open" : "") + "><summary>👥 Rozbicie ceny: lot, nocleg i cena za osobę / za całość (opcjonalnie)</summary>" +
@@ -2067,6 +2107,10 @@
         '<button type="button" class="btn ghost small" data-pi-add="hotel">+ Nocleg (za całość)</button>' +
         '<button type="button" class="btn ghost small" data-pi-add="car">+ Auto</button>' +
         '<button type="button" class="btn ghost small" data-pi-add="other">+ Inna pozycja</button></div>' +
+      '<div class="po-box" style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px"><b style="font-size:13px">🏨 Alternatywne noclegi (opcjonalnie)</b>' +
+        '<span class="hint" style="display:block;margin:4px 0 6px">Dodaj kilka wariantów noclegu (np. 2★, 3★, 4★). Lot i pozostałe pozycje powyżej zostają bez zmian, a strona policzy łączną cenę dla każdej opcji osobno. Gdy są opcje, pozycje „Nocleg” w stałych kosztach są pomijane.</span>' +
+        '<div id="' + P + '_popts">' + ((pr && pr.options) || []).map(pricingOptionRowHtml).join("") + "</div>" +
+        '<button type="button" class="btn ghost small" data-po-add="1">+ Dodaj alternatywny nocleg</button></div>' +
       '<div id="' + P + '_psum" class="pi-sum" role="status"></div></details>';
   }
   function readPricing(P) {
@@ -2080,11 +2124,24 @@
       if (isNaN(amount) || amount < 0) return;
       items.push({ kind: qs(".pi-kind", row).value, label: qs(".pi-label", row).value.trim(), amount: amount, basis: qs(".pi-basis", row).value === "person" ? "person" : "total" });
     });
-    if (!items.length) return null;
+    var options = [];
+    qsa(".po-row", byId(P + "_popts") || document.createElement("div")).forEach(function (row) {
+      var raw = qs(".po-amount", row).value;
+      if (raw === "") return;
+      var amount = parseFloat(raw);
+      if (isNaN(amount) || amount < 0) return;
+      var st = parseInt(qs(".po-stars", row).value, 10);
+      var o = { label: qs(".po-label", row).value.trim(), amount: amount, basis: qs(".po-basis", row).value === "person" ? "person" : "total" };
+      if (st) o.stars = st;
+      options.push(o);
+    });
+    if (!items.length && !options.length) return null;
     var people = Math.max(1, Math.min(12, parseInt(byId(P + "_people").value, 10) || 1));
     var hl = byId(P + "_headline").value;
     if (hl === "auto") hl = "person"; // duża cena oferty = cena za 1 osobę (suma jest w rozbiciu)
-    return { people: people, headline: hl, items: items };
+    var out = { people: people, headline: hl, items: items };
+    if (options.length) out.options = options;
+    return out;
   }
   // dodaje pozycję (np. lot z wyszukiwarki) i odświeża sumę
   function piAdd(P, x) {
@@ -2111,11 +2168,19 @@
       sum.innerHTML = "Razem" + (c.people > 1 ? " dla " + c.people + " osób" : "") + ": <b>" + formatPrice(c.total, cur) + "</b>" +
         (c.people > 1 ? " · na osobę: <b>" + formatPrice(c.perPerson, cur) + "</b>" : "") +
         (pr.headline === "manual" ? "" : " · duża cena oferty: <b>" + (pr.headline === "total" ? "suma" : "cena na osobę") + "</b>");
+      if (c.options.length) {
+        sum.innerHTML = "Stałe koszty (bez noclegu): <b>" + formatPrice(c.base, cur) + "</b><br>" + c.options.map(function (o) {
+          return escapeHtml(o.label) + ": <b>" + formatPrice(o.total, cur) + "</b>" + (c.people > 1 ? " (" + formatPrice(o.perPerson, cur) + " na osobę)" : "") + (c.cheapest === o && c.options.length > 1 ? " ← najtańsza" : "");
+        }).join("<br>") + '<br><span class="muted">Duża cena oferty = najtańsza opcja (' + (pr.headline === "total" ? "suma" : "na osobę") + ").</span>";
+      }
       if (pr.headline !== "manual") byId(priceId).value = Math.round(pr.headline === "total" ? c.total : c.perPerson);
     }
     box.addEventListener("input", update);
     box.addEventListener("change", update);
     box.addEventListener("click", function (e) {
+      var orm = e.target.closest(".po-remove");
+      if (orm) { orm.closest(".po-row").remove(); update(); return; }
+      if (e.target.closest("[data-po-add]")) { byId(P + "_popts").insertAdjacentHTML("beforeend", pricingOptionRowHtml({})); update(); return; }
       var rm = e.target.closest(".pi-remove");
       if (rm) { rm.closest(".pi-row").remove(); update(); return; }
       var add = e.target.closest("[data-pi-add]");
