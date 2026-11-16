@@ -503,9 +503,9 @@
     ".pricing-title{font-weight:800;font-size:13.5px;margin-bottom:8px;color:#0b2447}",
     ".pr-row,.pr-sum,.pr-pp{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:13.5px;padding:6px 0}",
     ".pr-row{border-top:1px solid var(--line)}.pr-row small{display:block;color:var(--ink-dim);font-size:12px;margin-top:1px}",
-    ".pp-wrap{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:2px 0 2px}.pp-price{font-size:46px;line-height:1;font-weight:900;color:#00b341;letter-spacing:-1px;text-shadow:0 1px 0 rgba(0,0,0,.06)}.pp-unit{font-size:16px;font-weight:800;color:#00b341;text-transform:uppercase;letter-spacing:.5px}",
+    ".pp-wrap{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:2px 0 2px}.pp-price{font-size:46px;line-height:1;font-weight:900;color:#0a0a0a;letter-spacing:-1px;text-shadow:0 1px 0 rgba(0,0,0,.06)}.pp-unit{font-size:16px;font-weight:800;color:#0a0a0a;text-transform:uppercase;letter-spacing:.5px}",
     ".pp-cheap{font-size:12.5px;font-weight:800;color:#166534;margin:2px 0}.pp-total{font-size:12px;color:#8a97a8;margin:2px 0 6px;font-weight:500}.pp-total-s{opacity:.65;font-size:11.5px}",
-    ".price-now.pp-card{font-size:27px;font-weight:900;color:#00b341}.pu-person{opacity:1!important;color:#00b341;font-weight:800}",
+    ".price-now.pp-card{font-size:27px;font-weight:900;color:#0a0a0a}.pu-person{opacity:1!important;color:#0a0a0a;font-weight:800}",
     ".trip-plan{margin:14px 0 4px;color:#0b1b33}.tp-title{font-weight:800;font-size:13.5px;margin-bottom:8px;color:#0b2447}.tp-alt-title{font-weight:800;font-size:13px;margin:16px 0 6px;color:#5b6b82;text-transform:uppercase;letter-spacing:.4px}",
     ".tp-opt{background:#fff;border:1px solid #dbe3ee;border-radius:14px;padding:10px 12px;margin:8px 0}.tp-opt.best{border:2px solid #16a34a;background:#f3fff7}",
     ".tp-opt-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:14px;margin-bottom:6px}",
@@ -513,12 +513,13 @@
     ".tp-line-title{font-weight:700;font-size:13.5px}.tp-line-sub{font-size:12px;color:#5b6b82}",
     ".tp-line-price{text-align:right;white-space:nowrap}.tp-line-price b{font-size:17px;font-weight:800}.tp-line-price span{font-size:12px;font-weight:700;margin-left:3px}.tp-line-price small{display:block;font-size:11px;color:#9aa6b6}",
     ".tp-btn{grid-column:1/-1;display:block;text-align:center;padding:9px 12px;font-size:14px;font-weight:800;border-radius:10px;text-decoration:none}",
-    ".tp-opt-sum{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid #0b2447;margin-top:6px;padding-top:8px;font-weight:800}.tp-opt-sum b{font-size:24px;color:#00b341}",
+    ".tp-opt-sum{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid #0b2447;margin-top:6px;padding-top:8px;font-weight:800}.tp-opt-sum b{font-size:24px;color:#0a0a0a}",
     ".tp-same{font-size:12px;color:#5b6b82;padding:6px 0}.tp-diff{font-weight:600;font-size:11.5px;color:#9aa6b6}",
     ".tp-opt-tot{text-align:right;font-size:11.5px;color:#9aa6b6}",
     ".pr-opt{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:#fff;color:#0b1b33}.pr-opt.best{border-color:#16a34a;box-shadow:0 0 0 1px #16a34a inset}",
     ".pr-opt-h{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:14px}.pr-badge{background:#dcfce7;color:#166534;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px}",
     ".pr-opt-s{font-size:12.5px;color:#5b6b82;margin:2px 0 4px}.pr-opt-t{font-size:17px;font-weight:800}.pr-opt-t small{font-size:12.5px;color:#0a5aa6;font-weight:700}",
+    ".po-row.ai{background:#fff8d6;border-radius:8px;padding:4px}",
     ".po-row{display:grid;grid-template-columns:1.6fr 90px 100px 130px auto;gap:6px;margin:6px 0}.po-row .po-url,.pi-row .pi-url{grid-column:1/-1}@media (max-width:700px){.po-row{grid-template-columns:1fr 1fr}}",
     ".pr-sum{border-top:2px solid #0b2447;font-weight:800;font-size:15px}.pr-pp{font-weight:800;font-size:15px;color:#0a5aa6}",
     ".pi-row{display:grid;grid-template-columns:110px 1fr 100px 200px auto;gap:8px;margin-bottom:8px;align-items:center}.pi-row input,.pi-row select{min-width:0}",
@@ -2161,6 +2162,8 @@
         '<button type="button" class="btn ghost small" data-pi-add="other">+ Inna pozycja</button></div>' +
       '<div class="po-box" style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px"><b style="font-size:13px">🏨 Alternatywne noclegi (opcjonalnie)</b>' +
         '<span class="hint" style="display:block;margin:4px 0 6px">Dodaj kilka wariantów noclegu (np. 2★, 3★, 4★). Lot i pozostałe pozycje powyżej zostają bez zmian, a strona policzy łączną cenę dla każdej opcji osobno. Gdy są opcje, pozycje „Nocleg” w stałych kosztach są pomijane.</span>' +
+        '<div class="po-ai" style="margin:6px 0 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="file" id="' + P + '_aiFiles" accept="image/*" multiple style="max-width:100%"> <button type="button" class="btn small" data-po-ai="1">✨ Uzupełnij noclegi ze zrzutu (AI)</button></div>' +
+        '<div id="' + P + '_aiMsg" class="hint" role="status" style="margin-bottom:6px"></div>' +
         '<div id="' + P + '_popts">' + ((pr && pr.options) || []).map(pricingOptionRowHtml).join("") + "</div>" +
         '<button type="button" class="btn ghost small" data-po-add="1">+ Dodaj alternatywny nocleg</button></div>' +
       '<div id="' + P + '_psum" class="pi-sum" role="status"></div></details>';
@@ -2230,9 +2233,36 @@
       }
       if (pr.headline !== "manual") byId(priceId).value = Math.round(pr.headline === "total" ? c.total : c.perPerson);
     }
+    function runLodgingAI(btn) {
+      var msg = byId(P + "_aiMsg"), fin = byId(P + "_aiFiles"), files = Array.prototype.slice.call((fin && fin.files) || [], 0, 4);
+      if (!files.length) { msg.textContent = "Najpierw wybierz zrzut ekranu z noclegiem (przycisk „Wybierz plik”), potem kliknij ten przycisk."; return; }
+      var old = btn.textContent; btn.disabled = true; btn.textContent = "⏳ AI czyta zrzut…"; msg.textContent = "";
+      Promise.all(files.map(function (f) { return new Promise(function (res) { readAndShrinkImage(f, res, 1600, 0.86); }); })).then(function (urls) {
+        urls = urls.filter(Boolean);
+        if (!urls.length) throw new Error("Nie udało się wczytać zrzutu.");
+        var dest = byId("f_destination");
+        return SB.callFn("describe", { mode: "lodging", images: urls, destination: dest ? dest.value.trim() : "" });
+      }).then(function (r) {
+        if (!r || !Array.isArray(r.hotels)) throw new Error("Funkcja „describe” w Supabase jest w starej wersji — wklej nowy plik index.ts (INSTRUKCJA.md) i kliknij Deploy.");
+        var cont = byId(P + "_popts"), cur = (byId(curId) || {}).value || "PLN", warns = [];
+        r.hotels.forEach(function (h) {
+          var amount = h.price, basis = h.scope === "person" ? "person" : "total";
+          if (h.scope === "night" && h.price) { if (h.nights) amount = h.price * h.nights; else warns.push(h.name + ": cena jest za noc — podaj łączną kwotę za pobyt"); }
+          if (h.currency && h.currency !== "PLN" && h.currency !== String(cur).toUpperCase()) warns.push(h.name + ": cena w " + h.currency + " — przelicz na " + cur);
+          cont.insertAdjacentHTML("beforeend", pricingOptionRowHtml({ label: h.name, stars: h.stars, amount: amount, basis: basis }));
+          cont.lastElementChild.classList.add("ai");
+        });
+        fin.value = "";
+        box.dispatchEvent(new Event("input", { bubbles: true }));
+        msg.textContent = "✔ Dodano noclegów: " + r.hotels.length + " (żółte wiersze — sprawdź nazwę, gwiazdki i kwotę)." + (warns.length ? " Uwaga: " + warns.join("; ") + "." : "");
+      }).catch(function (e) { msg.textContent = "Nie udało się: " + ((e && e.message) || e); })
+        .then(function () { btn.disabled = false; btn.textContent = old; });
+    }
     box.addEventListener("input", update);
     box.addEventListener("change", update);
     box.addEventListener("click", function (e) {
+      var aib = e.target.closest("[data-po-ai]");
+      if (aib) { runLodgingAI(aib); return; }
       var orm = e.target.closest(".po-remove");
       if (orm) { orm.closest(".po-row").remove(); update(); return; }
       if (e.target.closest("[data-po-add]")) { byId(P + "_popts").insertAdjacentHTML("beforeend", pricingOptionRowHtml({})); update(); return; }
