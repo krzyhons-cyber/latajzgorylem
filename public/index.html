@@ -514,6 +514,7 @@
     ".tp-line-price{text-align:right;white-space:nowrap}.tp-line-price b{font-size:17px;font-weight:800}.tp-line-price span{font-size:12px;font-weight:700;margin-left:3px}.tp-line-price small{display:block;font-size:11px;color:#9aa6b6}",
     ".tp-btn{grid-column:1/-1;display:block;text-align:center;padding:9px 12px;font-size:14px;font-weight:800;border-radius:10px;text-decoration:none}",
     ".tp-opt-sum{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid #0b2447;margin-top:6px;padding-top:8px;font-weight:800}.tp-opt-sum b{font-size:24px;color:#0a0a0a}",
+    ".flt-section{margin:16px 0}.flt-section h2{font-size:20px;margin:0 0 8px}.flt-section .extra-item{margin:10px 0}",
     ".lp-section{margin-top:22px}.lp-section h2{font-size:20px;margin:0 0 10px}.lp-card{border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px 0;background:#fff;color:#0b1b33}",
     ".lp-head{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;font-size:16px}.lp-price{font-size:13px;color:#5b6b82}.lp-price b{color:#0a0a0a}",
     ".lp-shot{display:block;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#eef2f7;text-decoration:none;color:#0b1b33;text-align:center}.lp-shot img{display:block;width:100%;height:auto;max-height:640px;object-fit:contain}.lp-shot span{display:block;padding:10px;font-size:14px;font-weight:800;background:#ffab20;color:#0b1b33}",
@@ -911,6 +912,31 @@
     return '<div class="trip-plan"><div class="tp-title">Z czego składa się cena</div><div class="tp-opt best">' + fixedLines +
       '<div class="tp-opt-sum"><span>Razem na osobę</span><b class="mono">' + formatPrice(c.perPerson, cur) + "</b></div>" +
       (ppl > 1 ? '<div class="tp-opt-tot">dla ' + ppl + " osób razem: " + formatPrice(c.total, cur) + "</div>" : "") + "</div></div>";
+  }
+  // Dzieli opis na: wstęp (hak), część o locie, resztę (nocleg itd.). Lot rozpoznajemy po akapicie zaczynającym się od ✈️ / „Loty:”.
+  function splitDescription(desc) {
+    var paras = String(desc || "").replace(/\r/g, "").split(/\n{2,}/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var isFlight = function (p) { return /^(✈️|✈|🛫|🛬|🛩)/.test(p) || /^(loty|lot|przelot|loty i bagaż)\b\s*[:\-–]/i.test(p); };
+    var f = -1, i;
+    for (i = 0; i < paras.length; i++) { if (isFlight(paras[i])) { f = i; break; } }
+    if (f < 0) return { intro: String(desc || ""), flight: "", rest: "" };
+    var e = f;
+    while (e < paras.length && isFlight(paras[e])) e++;
+    return { intro: paras.slice(0, f).join("\n\n"), flight: paras.slice(f, e).join("\n\n"), rest: paras.slice(e).join("\n\n") };
+  }
+  function descAndFlightHtml(offer) {
+    var sp = splitDescription(offer.description || ""), flt = flightSectionHtml(offer, sp.flight);
+    var d = function (t) { return t ? '<div class="desc">' + escapeHtml(t) + "</div>" : ""; };
+    if (!flt) return d(offer.description || "") || '<div class="desc"></div>';
+    return d(sp.intro) + flt + d(sp.rest);
+  }
+  // Sekcja „Lot” na górze głównej kolumny: opis lotu + zrzut/karta lotu (propozycje lotu z „Zaplanuj całą podróż”)
+  function flightSectionHtml(offer, flightText) {
+    var xs = (offer.extras || []).filter(function (x) { return x && x.url && x.type === "flight" && EXTRA_TYPES.flight; });
+    if (!flightText && !xs.length) return "";
+    return '<div class="flt-section"><h2>✈️ Lot</h2>' +
+      (flightText ? '<div class="desc">' + escapeHtml(flightText) + "</div>" : "") +
+      xs.map(function (x) { return '<div class="extra-item">' + extraCardHtml(x, EXTRA_TYPES.flight, offer) + "</div>"; }).join("") + "</div>";
   }
   // Propozycje noclegu ze zrzutami — w głównej kolumnie oferty (panel boczny zostaje tylko z cenami i przyciskami)
   function lodgingProposalsHtml(offer) {
@@ -1911,7 +1937,7 @@
           "<h1 style='font-size:28px;margin-top:6px'>" + escapeHtml(offer.title) + "</h1>" +
           '<div class="dest" style="font-size:15px">' + escapeHtml(offer.destination || "") + (offer.provider ? " · " + escapeHtml(offer.provider) : "") + "</div>" +
           holidayBoxHtml(offer) +
-          '<div class="desc">' + escapeHtml(offer.description || "") + "</div>" +
+          descAndFlightHtml(offer) +
           lodgingProposalsHtml(offer) +
         "</div>" +
         '<div class="buybox">' +
@@ -2371,7 +2397,7 @@
   }
 
   function extrasSectionHtml(offer) {
-    var list = (offer.extras || []).filter(function (x) { return x && x.url && EXTRA_TYPES[x.type]; });
+    var list = (offer.extras || []).filter(function (x) { return x && x.url && EXTRA_TYPES[x.type] && x.type !== "flight"; });
     if (!list.length) return "";
     list = list.map(function (x, i) { return { x: x, i: i }; });
     list.sort(function (p, q) { return (EXTRA_ORDER.indexOf(p.x.type) - EXTRA_ORDER.indexOf(q.x.type)) || (p.i - q.i); });
