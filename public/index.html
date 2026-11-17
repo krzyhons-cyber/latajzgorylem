@@ -519,6 +519,14 @@
     ".pr-opt{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:#fff;color:#0b1b33}.pr-opt.best{border-color:#16a34a;box-shadow:0 0 0 1px #16a34a inset}",
     ".pr-opt-h{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:14px}.pr-badge{background:#dcfce7;color:#166534;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px}",
     ".pr-opt-s{font-size:12.5px;color:#5b6b82;margin:2px 0 4px}.pr-opt-t{font-size:17px;font-weight:800}.pr-opt-t small{font-size:12.5px;color:#0a5aa6;font-weight:700}",
+    ".rd-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0;padding:10px;background:var(--bg-soft,#f3f6fa);border-radius:12px}.rd-filters select,.rd-filters input[type=search]{max-width:100%}",
+    ".rd-chip{display:inline-block;font-size:12px;border-radius:999px;padding:2px 9px;margin:2px 3px 2px 0;background:#eef2f7;color:#334}.rd-chip.good{background:#e6f9ec;color:#166534}.rd-chip.bad{background:#fdecec;color:#b42318}",
+    ".rd-card{display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:#fff;color:#0b1b33}",
+    ".rd-score{width:42px;height:42px;border:3px solid;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px}",
+    ".rd-title{font-weight:700;font-size:14.5px;line-height:1.3}.rd-meta{font-size:12px;color:#5b6b82;margin:3px 0}.rd-why{font-size:12.5px;color:#0b3b8c;margin:3px 0}.rd-snip{font-size:12.5px;color:#6b7a90;margin:3px 0}",
+    ".rd-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.rd-price{text-align:right;white-space:nowrap}.rd-price b{font-size:22px;color:#0a0a0a;font-weight:900}.rd-price span{font-size:12px;color:#6b7a90;margin-left:3px}",
+    ".rd-group{margin:14px 0;border-left:4px solid #0b2447;padding-left:10px}.rd-ghead{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:14px;margin-bottom:2px}.rd-ghead span{font-size:12.5px;color:#5b6b82}.rd-count{font-size:12.5px;color:#5b6b82;margin:4px 0}",
+    ".rd-src{display:grid;grid-template-columns:160px 1fr auto;gap:6px;margin:5px 0}@media (max-width:700px){.rd-card{grid-template-columns:42px 1fr}.rd-price{grid-column:2;text-align:left}.rd-src{grid-template-columns:1fr auto}.rd-src .rd-sn{grid-column:1/-1}}",
     ".po-row.ai{background:#fff8d6;border-radius:8px;padding:4px}",
     ".po-row{display:grid;grid-template-columns:1.6fr 90px 100px 130px auto;gap:6px;margin:6px 0}.po-row .po-url,.pi-row .pi-url{grid-column:1/-1}@media (max-width:700px){.po-row{grid-template-columns:1fr 1fr}}",
     ".pr-sum{border-top:2px solid #0b2447;font-weight:800;font-size:15px}.pr-pp{font-weight:800;font-size:15px;color:#0a5aa6}",
@@ -2605,9 +2613,10 @@
   }
 
   var adminTab = "offers";
+  var adminPrefill = null;
   function adminTabsHtml() {
     return '<div class="admin-tabs" style="display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap">' +
-      [["offers", "📋 Oferty i ustawienia"], ["links", "🔗 Generator linków"]].map(function (t) {
+      [["offers", "📋 Oferty i ustawienia"], ["links", "🔗 Generator linków"], ["radar", "🔎 Radar ofert"]].map(function (t) {
         return '<button type="button" class="btn small' + (adminTab === t[0] ? "" : " ghost") + '" data-admintab="' + t[0] + '">' + t[1] + "</button>";
       }).join("") + "</div>";
   }
@@ -2616,6 +2625,11 @@
   }
   function renderAdmin(canEdit) {
     if (!canEdit) { renderLogin(); return; }
+    if (adminTab === "radar") {
+      byId("view").innerHTML = adminTabsHtml() + renderRadar();
+      wireAdminTabs(); wireRadar();
+      return;
+    }
     if (adminTab === "links") {
       byId("view").innerHTML = adminTabsHtml() + renderLinkGenerator();
       wireAdminTabs(); wireLinkGenerator();
@@ -2629,6 +2643,9 @@
         draft = Object.assign(emptyDraft(), existing, { originalPrice: existing.originalPrice || "", links: getOfferLinks(existing), extras: existing.extras || [] });
         editing = true;
       } else adminEditingSlug = null;
+    } else if (adminPrefill) {
+      draft = Object.assign(emptyDraft(), adminPrefill);
+      adminPrefill = null;
     } else if (adminDuplicateSlug) {
       var src = activeOffers().find(function (o) { return o.slug === adminDuplicateSlug; });
       if (src) {
@@ -2658,6 +2675,184 @@
     loadAdminStats();
   }
 
+
+
+  /* ===================== ADMIN: RADAR OFERT (konkurencja / inspiracje) ================== */
+  var RADAR_DEFAULT_SOURCES = [
+    { name: "fly4free.pl", url: "https://www.fly4free.pl/feed/" },
+    { name: "lastminuter.pl", url: "https://lastminuter.pl/feed/" },
+    { name: "travelfree.info", url: "https://travelfree.info/feed/" },
+    { name: "skytravi.com", url: "https://skytravi.com/feed/" }
+  ];
+  var radar = { items: null, meta: null, loading: false, err: "", ui: { day: "2d", kind: "", min: "0", q: "", group: true, sort: "score", ai: true } };
+  var RADAR_KIND = { flight: ["✈️", "Loty", "flights"], holiday: ["🏝️", "Wczasy", "holidays"], hotel: ["🏨", "Noclegi", "hotels"], cruise: ["🚢", "Rejsy", "packages"], other: ["🎫", "Inne", "packages"] };
+  function radarSources() {
+    var st = state.settings || {};
+    var list = Array.isArray(st.radarSources) ? st.radarSources : RADAR_DEFAULT_SOURCES;
+    return list.filter(function (x) { return x && x.url; });
+  }
+  function radarDay(iso) {
+    try { return new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" }); } catch (e) { return String(iso).slice(0, 10); }
+  }
+  function radarWhen(iso) {
+    if (!iso) return "brak daty";
+    var d = radarDay(iso), t = radarDay(new Date().toISOString()), y = radarDay(new Date(Date.now() - 86400000).toISOString());
+    var hm = "";
+    try { hm = new Date(iso).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" }); } catch (e) {}
+    return (d === t ? "dzisiaj" : d === y ? "wczoraj" : d) + " " + hm;
+  }
+  function radarFiltered() {
+    var u = radar.ui, today = radarDay(new Date().toISOString()), yest = radarDay(new Date(Date.now() - 86400000).toISOString()), d3 = radarDay(new Date(Date.now() - 2 * 86400000).toISOString());
+    var q = u.q.trim().toLowerCase();
+    return (radar.items || []).filter(function (x) {
+      if (x.published) {
+        var d = radarDay(x.published);
+        if (u.day === "today" && d !== today) return false;
+        if (u.day === "yesterday" && d !== yest) return false;
+        if (u.day === "2d" && d !== today && d !== yest) return false;
+        if (u.day === "3d" && d < d3) return false;
+      }
+      if (u.kind && x.kind !== u.kind) return false;
+      if (Number(u.min) > 0 && !(typeof x.score === "number" && x.score >= Number(u.min))) return false;
+      if (q && (x.title + " " + (x.destination || "") + " " + (x.snippet || "") + " " + x.source).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+  function radarSort(list) {
+    var by = radar.ui.sort;
+    return list.slice().sort(function (a, b) {
+      if (by === "price") { var pa = typeof a.price === "number" ? a.price : 1e12, pb = typeof b.price === "number" ? b.price : 1e12; return pa - pb; }
+      if (by === "new") return (b.published ? Date.parse(b.published) : 0) - (a.published ? Date.parse(a.published) : 0);
+      return ((b.score === null || b.score === undefined ? -1 : b.score) - (a.score === null || a.score === undefined ? -1 : a.score)) || ((b.published ? Date.parse(b.published) : 0) - (a.published ? Date.parse(a.published) : 0));
+    });
+  }
+  function radarCardHtml(x, idx) {
+    var k = RADAR_KIND[x.kind] || ["🎫", "", "packages"], sc = typeof x.score === "number" ? x.score : null;
+    var scCol = sc === null ? "#8a97a8" : sc >= 80 ? "#16a34a" : sc >= 60 ? "#d97706" : "#6b7a90";
+    var safe = /^https?:\/\//i.test(x.url || "") ? x.url : "";
+    return '<div class="rd-card"><div class="rd-score" style="border-color:' + scCol + ';color:' + scCol + '" title="Ocena AI 0–100">' + (sc === null ? "—" : sc) + "</div>" +
+      '<div class="rd-main"><div class="rd-title">' + k[0] + " " + escapeHtml(x.title) + "</div>" +
+      '<div class="rd-meta">' + escapeHtml(x.source) + " · " + escapeHtml(radarWhen(x.published)) + (x.destination ? " · 📍 " + escapeHtml(x.destination) : "") + (x.from ? " · z " + escapeHtml(x.from) : "") + "</div>" +
+      (x.why ? '<div class="rd-why">💡 ' + escapeHtml(x.why) + "</div>" : "") +
+      (x.snippet ? '<div class="rd-snip">' + escapeHtml(x.snippet) + "</div>" : "") +
+      '<div class="rd-actions">' + (safe ? '<a class="btn ghost small" target="_blank" rel="noopener nofollow" href="' + escapeHtml(safe) + '">↗ Źródło</a>' : "") +
+      '<button type="button" class="btn small" data-rd-make="' + idx + '">➕ Utwórz ofertę</button></div></div>' +
+      '<div class="rd-price">' + (typeof x.price === "number" ? '<b class="mono">' + escapeHtml(String(Math.round(x.price)).replace(/\B(?=(\d{3})+(?!\d))/g, " ")) + "</b><span>" + escapeHtml(x.currency || "") + "</span>" : "<span>brak ceny</span>") + "</div></div>";
+  }
+  function renderRadar() {
+    var u = radar.ui, srcs = radarSources();
+    var sel = function (id, val, opts) { return '<select id="' + id + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(val) === String(o[0]) ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>"; };
+    var html = '<div class="card" style="padding:16px;max-width:980px"><h2 style="margin:0 0 4px;font-size:18px">🔎 Radar ofert — co wrzucają inne serwisy</h2>' +
+      '<p class="muted" style="margin:0 0 10px;font-size:13px">Pobiera najnowsze oferty z serwisów z okazjami (fly4free, lastminuter, travelfree, skytravi i Twoich źródeł), a AI ocenia je i porównuje. Służy jako <b>inspiracja</b>: opis, zdjęcia i dane należą do tamtych serwisów — własną ofertę opisz sam (generator AI), a link afiliacyjny dodaj swój.</p>' +
+      '<details id="rd_srcBox"' + (radar.items ? "" : " open") + '><summary style="cursor:pointer;font-weight:700;font-size:13.5px">⚙️ Źródła (' + srcs.length + ") — dodaj kolejne strony</summary><div id=\"rd_srcs\" style=\"margin-top:8px\">" +
+      srcs.map(function (s) { return radarSourceRowHtml(s); }).join("") + "</div>" +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0"><button type="button" class="btn ghost small" id="rd_addSrc">+ Dodaj źródło</button><button type="button" class="btn ghost small" id="rd_saveSrc">💾 Zapisz źródła</button><button type="button" class="btn ghost small" id="rd_resetSrc">Przywróć domyślne</button></div>' +
+      '<span class="hint">Wpisz adres strony (np. https://www.secretflying.com/) albo bezpośrednio kanału RSS. Radar sam szuka kanału RSS; gdy go nie ma, czyta listę artykułów ze strony.</span><div id="rd_srcMsg" class="hint"></div></details>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0 4px"><button type="button" class="btn primary" id="rd_go"' + (radar.loading ? " disabled" : "") + ">" + (radar.loading ? "⏳ Szukam ofert…" : "🔎 Szukaj ofert") + '</button>' +
+      '<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rd_ai"' + (u.ai ? " checked" : "") + '> Oceń przez AI (kierunek, cena, ocena 0–100)</label></div>' +
+      '<div id="rd_status" role="status" style="font-size:13px;margin:6px 0">' + radarStatusHtml() + "</div>";
+    if (radar.items) {
+      html += '<div class="rd-filters">' +
+        sel("rd_day", u.day, [["today", "Dzisiaj"], ["yesterday", "Wczoraj"], ["2d", "Dzisiaj + wczoraj"], ["3d", "Ostatnie 3 dni"], ["all", "Wszystko"]]) +
+        sel("rd_kind", u.kind, [["", "Wszystkie rodzaje"], ["flight", "✈️ Loty"], ["holiday", "🏝️ Wczasy"], ["hotel", "🏨 Noclegi"], ["cruise", "🚢 Rejsy"], ["other", "🎫 Inne"]]) +
+        sel("rd_min", u.min, [["0", "Każda ocena"], ["60", "Ocena ≥ 60"], ["80", "Ocena ≥ 80"]]) +
+        sel("rd_sort", u.sort, [["score", "Sortuj: ocena AI"], ["new", "Sortuj: najnowsze"], ["price", "Sortuj: najtańsze"]]) +
+        '<input id="rd_q" type="search" placeholder="Szukaj (kierunek, słowo…)" value="' + escapeHtml(u.q) + '">' +
+        '<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rd_group"' + (u.group ? " checked" : "") + '> Grupuj po kierunku (porównanie)</label></div>' +
+        '<div id="rd_list">' + radarListHtml() + "</div>";
+    }
+    return html + "</div>";
+  }
+  function radarSourceRowHtml(s) {
+    return '<div class="rd-src"><input class="rd-sn" placeholder="Nazwa" maxlength="40" value="' + escapeHtml(s.name || "") + '"><input class="rd-su" placeholder="https://… (strona lub kanał RSS)" value="' + escapeHtml(s.url || "") + '"><button type="button" class="btn ghost small rd-srm" title="Usuń">✕</button></div>';
+  }
+  function radarStatusHtml() {
+    if (radar.err) return '<div class="msg err">' + escapeHtml(radar.err) + "</div>";
+    if (!radar.meta) return '<span class="muted">Kliknij „Szukaj ofert”, aby pobrać dzisiejsze i wczorajsze okazje.</span>';
+    var m = radar.meta;
+    return m.sources.map(function (s) { return '<span class="rd-chip ' + (s.error ? "bad" : "good") + '" title="' + escapeHtml(s.error || (s.feed === "html" ? "lista artykułów ze strony (brak RSS)" : "kanał RSS")) + '">' + (s.error ? "✗ " : "✓ ") + escapeHtml(s.name) + (s.error ? ": " + escapeHtml(s.error) : " · " + s.count) + "</span>"; }).join(" ") +
+      (m.ai && m.ai.used ? ' <span class="rd-chip good">✨ ocena AI</span>' : (m.ai && m.ai.error ? ' <span class="rd-chip bad">AI: ' + escapeHtml(m.ai.error) + "</span>" : ""));
+  }
+  function radarListHtml() {
+    var list = radarSort(radarFiltered());
+    if (!list.length) return '<div class="muted" style="padding:14px 0">Brak ofert dla tych filtrów. Zmień „Dzisiaj + wczoraj” na „Ostatnie 3 dni” albo „Wszystko”.</div>';
+    radar.view = list;
+    if (!radar.ui.group) return '<div class="rd-count">' + list.length + " ofert</div>" + list.map(function (x, i) { return radarCardHtml(x, i); }).join("");
+    var groups = {}, order = [];
+    list.forEach(function (x, i) {
+      var key = x.destination ? x.destination.trim().toLowerCase() : "";
+      if (!groups[key]) { groups[key] = { name: x.destination || "Pozostałe (bez rozpoznanego kierunku)", items: [] }; order.push(key); }
+      groups[key].items.push({ x: x, i: i });
+    });
+    order.sort(function (a, b) {
+      if (!a) return 1; if (!b) return -1;
+      var ba = Math.max.apply(null, groups[a].items.map(function (w) { return w.x.score || 0; })), bb = Math.max.apply(null, groups[b].items.map(function (w) { return w.x.score || 0; }));
+      return (groups[b].items.length > 1) - (groups[a].items.length > 1) || bb - ba;
+    });
+    return '<div class="rd-count">' + list.length + " ofert w " + order.length + " grupach</div>" + order.map(function (k) {
+      var g = groups[k], priced = g.items.filter(function (w) { return typeof w.x.price === "number"; }).sort(function (a, b) { return a.x.price - b.x.price; }), best = priced[0];
+      var srcs = {}; g.items.forEach(function (w) { srcs[w.x.source] = 1; });
+      return '<div class="rd-group"><div class="rd-ghead"><b>📍 ' + escapeHtml(g.name) + "</b><span>" + g.items.length + " ofert · " + Object.keys(srcs).length + " serwis" + (Object.keys(srcs).length === 1 ? "" : "y") +
+        (best && priced.length > 1 ? " · najtaniej: <b>" + Math.round(best.x.price) + "&nbsp;" + escapeHtml(best.x.currency || "") + "</b> (" + escapeHtml(best.x.source) + ")" : "") + "</span></div>" +
+        g.items.map(function (w) { return radarCardHtml(w.x, w.i); }).join("") + "</div>";
+    }).join("");
+  }
+  function wireRadar() {
+    var ui = radar.ui;
+    function readSources() {
+      var out = [];
+      qsa(".rd-src", byId("rd_srcs")).forEach(function (r) {
+        var u = qs(".rd-su", r).value.trim(), n = qs(".rd-sn", r).value.trim();
+        if (u) out.push({ name: n, url: u });
+      });
+      return out;
+    }
+    byId("rd_addSrc").addEventListener("click", function () { byId("rd_srcs").insertAdjacentHTML("beforeend", radarSourceRowHtml({})); });
+    byId("rd_srcs").addEventListener("click", function (e) { var rm = e.target.closest(".rd-srm"); if (rm) rm.closest(".rd-src").remove(); });
+    byId("rd_resetSrc").addEventListener("click", function () { byId("rd_srcs").innerHTML = RADAR_DEFAULT_SOURCES.map(radarSourceRowHtml).join(""); byId("rd_srcMsg").textContent = "Przywrócono domyślne źródła — kliknij „Zapisz źródła”."; });
+    byId("rd_saveSrc").addEventListener("click", function () {
+      var list = readSources(), bad = list.filter(function (s) { return !/^(https?:\/\/)?[^\s\/]+\.[^\s\/]+/i.test(s.url); });
+      if (!list.length) { byId("rd_srcMsg").textContent = "Dodaj przynajmniej jedno źródło."; return; }
+      if (bad.length) { byId("rd_srcMsg").textContent = "Nieprawidłowy adres: " + bad[0].url; return; }
+      saveState(Object.assign({}, state, { settings: Object.assign({}, state.settings || {}, { radarSources: list }) }), function (ok, errText) {
+        byId("rd_srcMsg").textContent = ok === false ? (errText || "Nie udało się zapisać.") : "✔ Zapisano źródła (" + list.length + ").";
+      });
+    });
+    byId("rd_ai").addEventListener("change", function () { ui.ai = this.checked; });
+    byId("rd_go").addEventListener("click", function () {
+      var list = readSources();
+      if (!list.length) { byId("rd_srcMsg").textContent = "Dodaj przynajmniej jedno źródło."; return; }
+      radar.loading = true; radar.err = ""; renderRadar_refresh();
+      SB.callFn("radar", { sources: list, ai: ui.ai }).then(function (r) {
+        if (!r || !Array.isArray(r.items)) throw new Error("Funkcja „radar” zwróciła nieoczekiwaną odpowiedź.");
+        radar.items = r.items; radar.meta = r;
+      }).catch(function (e) {
+        radar.err = (e && e.status === 404) || /not found|404/i.test((e && e.message) || "")
+          ? "Funkcja „radar” nie jest wgrana w Supabase — wgraj ją według INSTRUKCJA.md (Edge Functions → nowa funkcja „radar”, Verify JWT: OFF)."
+          : "Nie udało się pobrać ofert: " + ((e && e.message) || e);
+      }).then(function () { radar.loading = false; renderRadar_refresh(); });
+    });
+    function renderRadar_refresh() { byId("view").innerHTML = adminTabsHtml() + renderRadar(); wireAdminTabs(); wireRadar(); }
+    ["rd_day", "rd_kind", "rd_min", "rd_sort"].forEach(function (id) {
+      var el = byId(id); if (!el) return;
+      el.addEventListener("change", function () { ui[id.slice(3)] = el.value; byId("rd_list").innerHTML = radarListHtml(); });
+    });
+    var q = byId("rd_q"); if (q) q.addEventListener("input", function () { ui.q = q.value; byId("rd_list").innerHTML = radarListHtml(); });
+    var g = byId("rd_group"); if (g) g.addEventListener("change", function () { ui.group = g.checked; byId("rd_list").innerHTML = radarListHtml(); });
+    var listEl = byId("rd_list");
+    if (listEl) listEl.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-rd-make]"); if (!b) return;
+      var x = (radar.view || [])[Number(b.getAttribute("data-rd-make"))]; if (!x) return;
+      var k = RADAR_KIND[x.kind] || RADAR_KIND.other;
+      adminPrefill = { destination: x.destination || "", category: k[2], currentPrice: typeof x.price === "number" && (!x.currency || x.currency === "PLN") ? Math.round(x.price) : "", currency: "PLN" };
+      adminFlash = "📝 Szkic na podstawie inspiracji: <b>" + escapeHtml(x.title) + "</b> (" + escapeHtml(x.source) + ")." +
+        (typeof x.price === "number" && x.currency && x.currency !== "PLN" ? " Cena w " + escapeHtml(x.currency) + " — wpisz własną cenę w zł." : "") +
+        " Dodaj własny link afiliacyjny, sprawdź aktualną cenę u partnera i wygeneruj własny opis (✨ AI).";
+      adminTab = "offers"; adminEditingSlug = null; adminDuplicateSlug = null;
+      render();
+      try { window.scrollTo(0, 0); } catch (err) {}
+    });
+  }
 
   /* ===================== ADMIN: AFFILIATE LINK GENERATOR ================== */
   function linkNetworkLabel(url, out) {
@@ -4566,7 +4761,7 @@
     if (settingsForm) {
       settingsForm.addEventListener("submit", function (e) {
         e.preventDefault();
-        var newSettings = {
+        var newSettings = Object.assign({}, state.settings || {}, {
           defaultCarRentalLabel: byId("s_carLabel").value.trim(),
           defaultCarRentalUrl: byId("s_carUrl").value.trim(),
           defaultHotelLabel: byId("s_hotelLabel").value.trim(),
@@ -4575,7 +4770,7 @@
           tdSiteId: byId("s_tdSite").value.trim(),
           tdRules: byId("s_tdRules").value.trim(),
           myRules: byId("s_myRules").value.trim()
-        };
+        });
         var badMy = newSettings.myRules.split(/\n+/).filter(Boolean).filter(function (l) { var i = l.indexOf(";"); return i < 1 || !/^https?:\/\//i.test(l.slice(i + 1).trim()); });
         if (badMy.length) { byId("settingsMsg").innerHTML = '<div class="msg err">Reguły MyLead: każda linia musi mieć postać „domena;https://twój-link”.</div>'; return; }
         if (newSettings.tdSiteId && !/^\d+$/.test(newSettings.tdSiteId)) { byId("settingsMsg").innerHTML = '<div class="msg err">ID strony Tradedoubler to same cyfry.</div>'; return; }
