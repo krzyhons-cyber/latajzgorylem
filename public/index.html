@@ -514,6 +514,7 @@
     ".tp-line-price{text-align:right;white-space:nowrap}.tp-line-price b{font-size:17px;font-weight:800}.tp-line-price span{font-size:12px;font-weight:700;margin-left:3px}.tp-line-price small{display:block;font-size:11px;color:#9aa6b6}",
     ".tp-btn{grid-column:1/-1;display:block;text-align:center;padding:9px 12px;font-size:14px;font-weight:800;border-radius:10px;text-decoration:none}",
     ".tp-opt-sum{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid #0b2447;margin-top:6px;padding-top:8px;font-weight:800}.tp-opt-sum b{font-size:24px;color:#0a0a0a}",
+    ".tp-shot{display:block;margin:6px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#eef2f7;text-decoration:none;color:#0b1b33;text-align:center}.tp-shot img{display:block;width:100%;height:auto;max-height:340px;object-fit:contain}.tp-shot span{display:block;padding:6px;font-size:12.5px;font-weight:700;background:#fff}",
     ".tp-same{font-size:12px;color:#5b6b82;padding:6px 0}.tp-diff{font-weight:600;font-size:11.5px;color:#9aa6b6}",
     ".tp-opt-tot{text-align:right;font-size:11.5px;color:#9aa6b6}",
     ".pr-opt{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:#fff;color:#0b1b33}.pr-opt.best{border-color:#16a34a;box-shadow:0 0 0 1px #16a34a inset}",
@@ -528,7 +529,7 @@
     ".rd-group{margin:14px 0;border-left:4px solid #0b2447;padding-left:10px}.rd-ghead{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:14px;margin-bottom:2px}.rd-ghead span{font-size:12.5px;color:#5b6b82}.rd-count{font-size:12.5px;color:#5b6b82;margin:4px 0}",
     ".rd-src{display:grid;grid-template-columns:160px 1fr auto;gap:6px;margin:5px 0}@media (max-width:700px){.rd-card{grid-template-columns:42px 1fr}.rd-price{grid-column:2;text-align:left}.rd-src{grid-template-columns:1fr auto}.rd-src .rd-sn{grid-column:1/-1}}",
     ".po-row.ai{background:#fff8d6;border-radius:8px;padding:4px}",
-    ".po-row{display:grid;grid-template-columns:1.6fr 90px 100px 130px auto;gap:6px;margin:6px 0}.po-row .po-url,.pi-row .pi-url{grid-column:1/-1}@media (max-width:700px){.po-row{grid-template-columns:1fr 1fr}}",
+    ".po-row{display:grid;grid-template-columns:1.6fr 90px 100px 130px auto;gap:6px;margin:6px 0}.po-row .row-url,.pi-row .row-url{grid-column:1/-1;display:flex;gap:6px}.row-url input{flex:1;min-width:0}.po-shot{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:#5b6b82}.po-thumb img{width:84px;height:56px;object-fit:contain;background:#eef2f7;border-radius:6px;display:block}.po-shot .po-imgurl{flex:1;min-width:160px}@media (max-width:700px){.po-row{grid-template-columns:1fr 1fr}}",
     ".pr-sum{border-top:2px solid #0b2447;font-weight:800;font-size:15px}.pr-pp{font-weight:800;font-size:15px;color:#0a5aa6}",
     ".pi-row{display:grid;grid-template-columns:110px 1fr 100px 200px auto;gap:8px;margin-bottom:8px;align-items:center}.pi-row input,.pi-row select{min-width:0}",
     "@media (max-width:760px){.pi-row{grid-template-columns:1fr 1fr}.pi-row .pi-label{grid-column:1 / -1}}",
@@ -819,7 +820,7 @@
     var base = total;
     var options = opts.map(function (o, i) {
       var t = base + (o.basis === "person" ? o.amount * people : o.amount);
-      return { label: o.label || ("Opcja " + (i + 1)), stars: o.stars, url: o.url, amount: o.amount, basis: o.basis === "person" ? "person" : "total", url: o.url || "", total: t, perPerson: t / people };
+      return { label: o.label || ("Opcja " + (i + 1)), stars: o.stars, url: o.url, image: o.image, amount: o.amount, basis: o.basis === "person" ? "person" : "total", url: o.url || "", total: t, perPerson: t / people };
     });
     var cheapest = null;
     options.forEach(function (o) { if (!cheapest || o.total < cheapest.total) cheapest = o; });
@@ -890,10 +891,14 @@
     }).join("");
     function optionBlock(op, isBest) {
       var url = op.url || extraUrl(offer, "hotel", op.label);
+      var shotHref = url ? (tdConvert(url) || url) : "";
+      var shot = op.image && /^(https?:|data:image\/)/i.test(op.image)
+        ? (shotHref ? '<a class="tp-shot" target="_blank" rel="noopener sponsored" href="' + escapeHtml(shotHref) + '"><img src="' + escapeHtml(op.image) + '" alt="' + escapeHtml("Nocleg: " + op.label) + '" loading="lazy"><span>Zobacz i zarezerwuj →</span></a>' : '<div class="tp-shot"><img src="' + escapeHtml(op.image) + '" alt="' + escapeHtml("Nocleg: " + op.label) + '" loading="lazy"></div>')
+        : "";
       var line = planLineHtml("🏨", "Nocleg — " + op.label + (op.stars ? " " + starsText(op.stars).replace(/☆/g, "") : ""), "", perOf(op.amount, op.basis), ppl > 1 ? "razem " + formatPrice(totOf(op.amount, op.basis), cur) : "", url, "Rezerwuj nocleg", cur);
       return '<div class="tp-opt' + (isBest ? " best" : "") + '">' +
         '<div class="tp-opt-head"><b>' + (isBest ? "✔ Najtańsza opcja — całość" : escapeHtml(op.label) + (op.stars ? " " + starsText(op.stars).replace(/☆/g, "") : "")) + "</b>" + (isBest ? '<span class="pr-badge">najtańsza</span>' : "") + "</div>" +
-        (isBest ? (c.items.length ? fixedLines : "") : (c.items.length ? '<div class="tp-same">Lot i pozostałe koszty jak w najtańszej opcji: ' + formatPrice(c.base / ppl, cur) + " / os.</div>" : "")) + line +
+        (c.items.length ? fixedLines : "") + line + shot +
         '<div class="tp-opt-sum"><span>Razem na osobę' + (!isBest && c.cheapest ? ' <small class="tp-diff">(+' + formatPrice(op.perPerson - c.cheapest.perPerson, cur) + " vs najtańsza)</small>" : "") + '</span><b class="mono">' + formatPrice(op.perPerson, cur) + "</b></div>" +
         (ppl > 1 ? '<div class="tp-opt-tot">dla ' + ppl + " osób razem: " + formatPrice(op.total, cur) + "</div>" : "") + "</div>";
     }
@@ -1032,6 +1037,20 @@
     var t = DESC_TEMPLATES[key];
     return t ? t.text({ city: firstPart(o.destination) || "wybrany kierunek", price: formatPrice(o.currentPrice, o.currency) }) : "";
   }
+  // Tytuł z generatora AI: WIELKIE LITERY i minimum 3 emoji (działa też ze starszą wersją funkcji „describe”)
+  function enforceAiTitle(t) {
+    t = String(t || "").trim();
+    if (!t) return t;
+    t = t.toLocaleUpperCase("pl-PL");
+    var count = function () { return (t.match(/\p{Extended_Pictographic}/gu) || []).length; };
+    var pool = ["✈️", "🌴", "🔥", "☀️", "🏖️", "💥"], i = 0;
+    while (count() < 3 && i < pool.length) {
+      var e = pool[i++];
+      if (t.indexOf(e) >= 0) continue;
+      t = i % 2 === 1 ? e + " " + t : t + " " + e;
+    }
+    return t;
+  }
   // Opis wygenerowany przez AI (Edge Function "describe": ChatGPT lub Claude, klucz w Secrets Supabase)
   function aiDescribe(info) {
     if (!String(info.destination || "").trim()) return Promise.reject(new Error("Najpierw wpisz kierunek."));
@@ -1039,7 +1058,7 @@
       if (!r || !r.text) throw new Error("AI nie zwróciło opisu.");
       var text = String(r.text).replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
       if (text.indexOf("\n\n") < 0 && text.indexOf("\n") >= 0) text = text.replace(/\n/g, "\n\n"); // każdy akapit osobno
-      return { text: text, title: String(r.title || "").trim() };
+      return { text: text, title: enforceAiTitle(String(r.title || "").trim()) };
     }, function (err) {
       if (err && err.status === 404) throw new Error("Funkcja „describe” nie jest wdrożona w Supabase — dodaj ją (INSTRUKCJA.md, „Opisy AI”).");
       throw err;
@@ -2137,7 +2156,7 @@
       '<input class="pi-label" placeholder="Opis (np. Warszawa → Rzym, 7 nocy)" value="' + escapeHtml(x.label || "") + '">' +
       '<input class="pi-amount" type="number" min="0" step="1" placeholder="Kwota" value="' + escapeHtml(x.amount === undefined || x.amount === null ? "" : x.amount) + '">' +
       '<select class="pi-basis" aria-label="Za kogo jest ta kwota"><option value="person"' + (basis === "person" ? " selected" : "") + '>za osobę</option><option value="total"' + (basis === "total" ? " selected" : "") + ">za całość (np. nocleg za 2 os.)</option></select>" +
-      '<input class="pi-url" type="url" placeholder="Link do rezerwacji tej pozycji (opcjonalnie — pojawi się przycisk „Rezerwuj”)" value="' + escapeHtml(x.url || "") + '">' +
+      '<div class="row-url"><input class="pi-url" type="url" placeholder="Link do rezerwacji tej pozycji (opcjonalnie — pojawi się przycisk „Rezerwuj”)" value="' + escapeHtml(x.url || "") + '"><button type="button" class="btn ghost small row-conv" title="Zamień ten link na Twój link partnerski (Travelpayouts / Tradedoubler / MyLead)">🔗 Travelpayouts</button></div>' +
       '<button type="button" class="btn ghost small pi-remove" title="Usuń pozycję">✕</button></div>';
   }
   function pricingOptionRowHtml(x) {
@@ -2148,7 +2167,8 @@
       '<input class="po-amount" type="number" min="0" step="1" placeholder="Kwota noclegu" value="' + escapeHtml(x.amount === undefined || x.amount === null ? "" : x.amount) + '">' +
       '<select class="po-basis" aria-label="Za kogo jest ta kwota"><option value="total"' + (basis === "total" ? " selected" : "") + '>za całość</option><option value="person"' + (basis === "person" ? " selected" : "") + ">za osobę</option></select>" +
       '<button type="button" class="btn ghost small po-remove" title="Usuń opcję">✕</button>' +
-      '<input class="po-url" type="url" placeholder="Link do rezerwacji tego noclegu (opcjonalnie)" value="' + escapeHtml(x.url || "") + '"></div>';
+      '<div class="row-url"><input class="po-url" type="url" placeholder="Link do rezerwacji tego noclegu (opcjonalnie)" value="' + escapeHtml(x.url || "") + '"><button type="button" class="btn ghost small row-conv" title="Zamień ten link na Twój link partnerski (Travelpayouts / Tradedoubler / MyLead)">🔗 Travelpayouts</button></div>' +
+      '<div class="po-shot"><input type="hidden" class="po-img" value="' + escapeHtml(x.image || "") + '"><span class="po-thumb">' + (x.image ? '<img src="' + escapeHtml(x.image) + '" alt="">' : "") + '</span><span class="po-shot-hint">' + (x.image ? "Zrzut noclegu (pokaże się na stronie i będzie klikalny)" : "Zrzut noclegu: dodany automatycznie przez ✨ AI lub wklej adres zdjęcia →") + '</span><input class="po-imgurl" type="url" placeholder="adres zdjęcia/zrzutu (opcjonalnie)" value=""><button type="button" class="btn ghost small po-img-rm"' + (x.image ? "" : " hidden") + ' title="Usuń zrzut">Usuń zrzut</button></div></div>';
   }
   function pricingFieldsHtml(P, pr) {
     var has = pr && ((pr.items && pr.items.length) || (pr.options && pr.options.length));
@@ -2199,6 +2219,9 @@
       var st = parseInt(qs(".po-stars", row).value, 10);
       var o = { label: qs(".po-label", row).value.trim(), amount: amount, basis: qs(".po-basis", row).value === "person" ? "person" : "total" };
       if (st) o.stars = st;
+      var oi = (qs(".po-img", row) ? qs(".po-img", row).value : "").trim(), oiu = (qs(".po-imgurl", row) ? qs(".po-imgurl", row).value : "").trim();
+      if (oiu && /^https?:\/\//i.test(oiu)) oi = oiu;
+      if (oi) o.image = oi;
       var ou = (qs(".po-url", row) ? qs(".po-url", row).value : "").trim(); if (/^https?:\/\//i.test(ou)) o.url = tdConvert(ou) || ou;
       options.push(o);
     });
@@ -2246,8 +2269,9 @@
       var msg = byId(P + "_aiMsg"), fin = byId(P + "_aiFiles"), files = Array.prototype.slice.call((fin && fin.files) || [], 0, 4);
       if (!files.length) { msg.textContent = "Najpierw wybierz zrzut ekranu z noclegiem (przycisk „Wybierz plik”), potem kliknij ten przycisk."; return; }
       var old = btn.textContent; btn.disabled = true; btn.textContent = "⏳ AI czyta zrzut…"; msg.textContent = "";
+      var shotUrls = [];
       Promise.all(files.map(function (f) { return new Promise(function (res) { readAndShrinkImage(f, res, 1600, 0.86); }); })).then(function (urls) {
-        urls = urls.filter(Boolean);
+        urls = urls.filter(Boolean); shotUrls = urls;
         if (!urls.length) throw new Error("Nie udało się wczytać zrzutu.");
         var dest = byId("f_destination");
         return SB.callFn("describe", { mode: "lodging", images: urls, destination: dest ? dest.value.trim() : "" });
@@ -2258,7 +2282,8 @@
           var amount = h.price, basis = h.scope === "person" ? "person" : "total";
           if (h.scope === "night" && h.price) { if (h.nights) amount = h.price * h.nights; else warns.push(h.name + ": cena jest za noc — podaj łączną kwotę za pobyt"); }
           if (h.currency && h.currency !== "PLN" && h.currency !== String(cur).toUpperCase()) warns.push(h.name + ": cena w " + h.currency + " — przelicz na " + cur);
-          cont.insertAdjacentHTML("beforeend", pricingOptionRowHtml({ label: h.name, stars: h.stars, amount: amount, basis: basis }));
+          var si = typeof h.shot === "number" ? h.shot : (shotUrls.length === 1 ? 0 : -1);
+          cont.insertAdjacentHTML("beforeend", pricingOptionRowHtml({ label: h.name, stars: h.stars, amount: amount, basis: basis, image: shotUrls[si] || "" }));
           cont.lastElementChild.classList.add("ai");
         });
         fin.value = "";
@@ -2270,6 +2295,16 @@
     box.addEventListener("input", update);
     box.addEventListener("change", update);
     box.addEventListener("click", function (e) {
+      var cvb = e.target.closest(".row-conv");
+      if (cvb) {
+        var inp = qs("input", cvb.closest(".row-url")), old0 = cvb.textContent, msg0 = byId(P + "_aiMsg");
+        cvb.disabled = true; cvb.textContent = "⏳…";
+        convertAffiliateLink(inp.value, "").then(function (u) { inp.value = u; if (msg0) msg0.textContent = "✔ Link zamieniony na afiliacyjny."; }, function (err) { if (msg0) msg0.textContent = "Nie udało się zamienić linku: " + ((err && err.message) || err); })
+          .then(function () { cvb.disabled = false; cvb.textContent = old0; update(); });
+        return;
+      }
+      var irm = e.target.closest(".po-img-rm");
+      if (irm) { var rw = irm.closest(".po-row"); qs(".po-img", rw).value = ""; qs(".po-imgurl", rw).value = ""; qs(".po-thumb", rw).innerHTML = ""; irm.hidden = true; return; }
       var aib = e.target.closest("[data-po-ai]");
       if (aib) { runLodgingAI(aib); return; }
       var orm = e.target.closest(".po-remove");
