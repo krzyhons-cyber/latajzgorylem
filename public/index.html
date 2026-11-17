@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="pl">
 <head>
-<meta name="mitgo-verification" content="90e1e993-fc38-462f-8b9d-0442f8750dc2" />
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>latajzgorylem.pl — oferty wyjazdów</title>
@@ -515,6 +514,9 @@
     ".tp-line-price{text-align:right;white-space:nowrap}.tp-line-price b{font-size:17px;font-weight:800}.tp-line-price span{font-size:12px;font-weight:700;margin-left:3px}.tp-line-price small{display:block;font-size:11px;color:#9aa6b6}",
     ".tp-btn{grid-column:1/-1;display:block;text-align:center;padding:9px 12px;font-size:14px;font-weight:800;border-radius:10px;text-decoration:none}",
     ".tp-opt-sum{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid #0b2447;margin-top:6px;padding-top:8px;font-weight:800}.tp-opt-sum b{font-size:24px;color:#0a0a0a}",
+    ".lp-section{margin-top:22px}.lp-section h2{font-size:20px;margin:0 0 10px}.lp-card{border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px 0;background:#fff;color:#0b1b33}",
+    ".lp-head{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;font-size:16px}.lp-price{font-size:13px;color:#5b6b82}.lp-price b{color:#0a0a0a}",
+    ".lp-shot{display:block;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#eef2f7;text-decoration:none;color:#0b1b33;text-align:center}.lp-shot img{display:block;width:100%;height:auto;max-height:640px;object-fit:contain}.lp-shot span{display:block;padding:10px;font-size:14px;font-weight:800;background:#ffab20;color:#0b1b33}",
     ".tp-shot{display:block;margin:6px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#eef2f7;text-decoration:none;color:#0b1b33;text-align:center}.tp-shot img{display:block;width:100%;height:auto;max-height:340px;object-fit:contain}.tp-shot span{display:block;padding:6px;font-size:12.5px;font-weight:700;background:#fff}",
     ".tp-same{font-size:12px;color:#5b6b82;padding:6px 0}.tp-diff{font-weight:600;font-size:11.5px;color:#9aa6b6}",
     ".tp-opt-tot{text-align:right;font-size:11.5px;color:#9aa6b6}",
@@ -892,18 +894,16 @@
     }).join("");
     function optionBlock(op, isBest) {
       var url = op.url || extraUrl(offer, "hotel", op.label);
-      var shotHref = url ? (tdConvert(url) || url) : "";
-      var shot = op.image && /^(https?:|data:image\/)/i.test(op.image)
-        ? (shotHref ? '<a class="tp-shot" target="_blank" rel="noopener sponsored" href="' + escapeHtml(shotHref) + '"><img src="' + escapeHtml(op.image) + '" alt="' + escapeHtml("Nocleg: " + op.label) + '" loading="lazy"><span>Zobacz i zarezerwuj →</span></a>' : '<div class="tp-shot"><img src="' + escapeHtml(op.image) + '" alt="' + escapeHtml("Nocleg: " + op.label) + '" loading="lazy"></div>')
-        : "";
+      var num = c.sorted.indexOf(op) + 1, hname = escapeHtml(op.label) + (op.stars ? " " + starsText(op.stars).replace(/☆/g, "") : "");
       var line = planLineHtml("🏨", "Nocleg — " + op.label + (op.stars ? " " + starsText(op.stars).replace(/☆/g, "") : ""), "", perOf(op.amount, op.basis), ppl > 1 ? "razem " + formatPrice(totOf(op.amount, op.basis), cur) : "", url, "Rezerwuj nocleg", cur);
       return '<div class="tp-opt' + (isBest ? " best" : "") + '">' +
-        '<div class="tp-opt-head"><b>' + (isBest ? "✔ Najtańsza opcja — całość" : escapeHtml(op.label) + (op.stars ? " " + starsText(op.stars).replace(/☆/g, "") : "")) + "</b>" + (isBest ? '<span class="pr-badge">najtańsza</span>' : "") + "</div>" +
-        (c.items.length ? fixedLines : "") + line + shot +
+        '<div class="tp-opt-head"><b>' + (isBest ? "✔ " : "") + "Propozycja numer " + num + " — " + hname + "</b>" + (isBest ? '<span class="pr-badge">najtańsza</span>' : "") + "</div>" +
+        (c.items.length ? fixedLines : "") + line +
         '<div class="tp-opt-sum"><span>Razem na osobę' + (!isBest && c.cheapest ? ' <small class="tp-diff">(+' + formatPrice(op.perPerson - c.cheapest.perPerson, cur) + " vs najtańsza)</small>" : "") + '</span><b class="mono">' + formatPrice(op.perPerson, cur) + "</b></div>" +
         (ppl > 1 ? '<div class="tp-opt-tot">dla ' + ppl + " osób razem: " + formatPrice(op.total, cur) + "</div>" : "") + "</div>";
     }
     if (c.options.length) {
+      c.sorted = c.options.slice().sort(function (a, b) { return a.total - b.total; });
       var best = c.cheapest, others = c.options.filter(function (o) { return o !== best; }).sort(function (a, b) { return a.total - b.total; });
       return '<div class="trip-plan"><div class="tp-title">Plan podróży i rezerwacje</div>' + optionBlock(best, true) +
         (others.length ? '<div class="tp-alt-title">Droższe opcje noclegu</div>' + others.map(function (o) { return optionBlock(o, false); }).join("") : "") + "</div>";
@@ -911,6 +911,22 @@
     return '<div class="trip-plan"><div class="tp-title">Z czego składa się cena</div><div class="tp-opt best">' + fixedLines +
       '<div class="tp-opt-sum"><span>Razem na osobę</span><b class="mono">' + formatPrice(c.perPerson, cur) + "</b></div>" +
       (ppl > 1 ? '<div class="tp-opt-tot">dla ' + ppl + " osób razem: " + formatPrice(c.total, cur) + "</div>" : "") + "</div></div>";
+  }
+  // Propozycje noclegu ze zrzutami — w głównej kolumnie oferty (panel boczny zostaje tylko z cenami i przyciskami)
+  function lodgingProposalsHtml(offer) {
+    var c = pricingOf(offer);
+    if (!c || !c.options.length) return "";
+    var sorted = c.options.slice().sort(function (a, b) { return a.total - b.total; }), cur = offer.currency, ppl = c.people;
+    var cards = sorted.map(function (op, i) {
+      if (!op.image || !/^(https?:|data:image\/)/i.test(op.image)) return "";
+      var url = op.url || extraUrl(offer, "hotel", op.label), href = url ? (tdConvert(url) || url) : "";
+      var alt = escapeHtml("Propozycja numer " + (i + 1) + ": " + op.label), img = '<img src="' + escapeHtml(op.image) + '" alt="' + alt + '" loading="lazy">';
+      var nightsPerPerson = op.basis === "person" ? op.amount : op.amount / ppl;
+      return '<div class="lp-card"><div class="lp-head"><b>Propozycja numer ' + (i + 1) + ": " + escapeHtml(op.label) + (op.stars ? " " + starsText(op.stars).replace(/☆/g, "") : "") + "</b>" +
+        '<span class="lp-price">nocleg ' + formatPrice(nightsPerPerson, cur) + " / os. · lot + nocleg: <b>" + formatPrice(op.perPerson, cur) + " / os.</b></span></div>" +
+        (href ? '<a class="lp-shot" target="_blank" rel="noopener sponsored" href="' + escapeHtml(href) + '">' + img + "<span>Zobacz ofertę i zarezerwuj nocleg →</span></a>" : '<div class="lp-shot">' + img + "</div>") + "</div>";
+    }).join("");
+    return cards ? '<div class="lp-section"><h2>🏨 Propozycje noclegu</h2>' + cards + "</div>" : "";
   }
   // adresy, które blok „Plan podróży i rezerwacje” pokazuje jako własne przyciski (żeby nie dublować ich wyżej)
   function pricingUsedUrls(offer) {
@@ -1896,6 +1912,7 @@
           '<div class="dest" style="font-size:15px">' + escapeHtml(offer.destination || "") + (offer.provider ? " · " + escapeHtml(offer.provider) : "") + "</div>" +
           holidayBoxHtml(offer) +
           '<div class="desc">' + escapeHtml(offer.description || "") + "</div>" +
+          lodgingProposalsHtml(offer) +
         "</div>" +
         '<div class="buybox">' +
           (pct > 0 ? '<div class="badge discount" style="position:static;display:inline-block;margin-bottom:8px">-' + pct + "% taniej</div>" : "") +
