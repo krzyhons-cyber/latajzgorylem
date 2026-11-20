@@ -526,7 +526,7 @@
     ".pr-opt-s{font-size:12.5px;color:#5b6b82;margin:2px 0 4px}.pr-opt-t{font-size:17px;font-weight:800}.pr-opt-t small{font-size:12.5px;color:#0a5aa6;font-weight:700}",
     ".iof-cols{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:16px;align-items:start;margin-top:12px}@media (max-width:1000px){.iof-cols{grid-template-columns:1fr}}",
     ".iof-form .field label,.iof-form label{color:#1b2a41!important;font-weight:700}.iof-form .field input,.iof-form .field textarea,.iof-form .field select,.iof-form input,.iof-form textarea,.iof-form select{background:#fff!important;color:#0f1f3a!important;border:1.5px solid #9fb3cc!important;-webkit-text-fill-color:#0f1f3a}.iof-form input::placeholder,.iof-form textarea::placeholder{color:#7b8da6!important;-webkit-text-fill-color:#7b8da6}.iof-form input:focus,.iof-form textarea:focus,.iof-form select:focus{border-color:#f5a623!important;outline:2px solid #ffd98a}.iof-form summary{color:#0f1f3a!important}",
-    ".iof-form details{background:var(--bg-soft,#f3f6fa);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px}.iof-form summary{cursor:pointer;font-weight:800;font-size:14px}.iof-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:8px}.iof-grid .field.wide{grid-column:1/-1}.iof-grid input,.iof-grid select,.iof-grid textarea{width:100%}",
+    ".iof-hform-h b,.iof-ai b{color:#3a1d00!important}.iof-form .btn.ghost{color:#3a1d00!important;background:#fff!important;border:1.5px solid #c46a00!important}.iof-form .btn.primary{color:#3a1d00!important}.iof-form details{background:linear-gradient(180deg,#ffb74d,#ff9a1f)!important;border:2px solid #e07b00!important;box-shadow:0 2px 8px rgba(224,123,0,.35)}.iof-form summary{color:#3a1d00!important;font-size:15px}.iof-ai{background:#fff;border:2px dashed #e07b00;border-radius:12px;padding:10px;margin:8px 0}.iof-ai .hint{color:#4a3a22}.iof-ai-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}.iof-hform.ai{background:#fff3d6;border-color:#e07b00}.iof-aitag{font-size:12px;font-weight:700;color:#b45309}.iof-ls{color:#3a1d00!important;font-weight:600}.iof-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:#33475f;margin-bottom:4px}.iof-photo{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:10px;margin:8px 0}.iof-hform-h .iof-aitag{margin-left:8px}.iof-form details{background:var(--bg-soft,#f3f6fa);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px}.iof-form summary{cursor:pointer;font-weight:800;font-size:14px}.iof-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:8px}.iof-grid .field.wide{grid-column:1/-1}.iof-grid input,.iof-grid select,.iof-grid textarea{width:100%}",
     ".iof-hform{border:1px dashed var(--line);border-radius:10px;padding:8px;margin:8px 0}.iof-hform-h{display:flex;justify-content:space-between;align-items:center}.iof-photos{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.iof-ph{position:relative}.iof-ph img{width:78px;height:56px;object-fit:cover;border-radius:6px;display:block}.iof-ph-x{position:absolute;top:-6px;right:-6px;border:0;border-radius:50%;width:20px;height:20px;background:#b42318;color:#fff;cursor:pointer;font-size:11px}",
     ".iof-prev-h{font-size:12px;color:#d8e6ff;margin:0 0 6px;font-weight:700}",
     ".iof-doc{background:#fff;color:#0b1b33;border-radius:14px;padding:22px;max-width:794px;margin:0 auto;box-shadow:0 8px 30px rgba(0,0,0,.25);font-size:14px;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
@@ -2783,21 +2783,23 @@
 
 
   /* ===================== ADMIN: OFERTA INDYWIDUALNA (PDF / wydruk dla klienta) ================== */
-  var IOF_KEY = "latajzgorylem_iof_draft_v1";
+  var IOF_KEY = "latajzgorylem_iof_draft_v2";
   var IOF_BOARDS = ["", "Bez wyżywienia", "Śniadania", "Śniadania i obiadokolacje", "Pełne wyżywienie", "All inclusive"];
   function iofEmpty() {
-    return { client: "", dest: "", dates: "", nights: "", people: 2, from: "", valid: "", photo: "",
-      flight: { route: "", dates: "", airline: "", bag: "", price: "", link: "", shot: "" },
-      hotels: [], incl: "", extra: "", contact: "" };
+    return { client: "", dest: "", people: 2, valid: "", photo: "", agency: "", offers: [], incl: "", extra: "", contact: "" };
+  }
+  function iofOfferEmpty(x) {
+    x = x || {};
+    return { hotel: x.hotel || "", resort: x.resort || "", stars: x.stars || "", board: x.board || "", nights: x.nights || "", from: x.from || "", when: x.when || "",
+      price: x.price === undefined || x.price === null ? "" : x.price, note: x.note || "", url: x.url || "", shot: x.shot || "", image: x.image || "", ai: !!x.ai };
   }
   function iofLoad() {
     try {
       var raw = localStorage.getItem(IOF_KEY), d = iofEmpty();
       if (!raw) return d;
       var j = JSON.parse(raw);
-      Object.keys(d).forEach(function (k) { if (j[k] !== undefined && k !== "flight") d[k] = j[k]; });
-      if (j.flight) Object.keys(d.flight).forEach(function (k) { if (j.flight[k] !== undefined) d.flight[k] = j.flight[k]; });
-      if (!Array.isArray(d.hotels)) d.hotels = [];
+      Object.keys(d).forEach(function (k) { if (j[k] !== undefined && k !== "offers") d[k] = j[k]; });
+      if (Array.isArray(j.offers)) d.offers = j.offers.map(iofOfferEmpty);
       return d;
     } catch (e) { return iofEmpty(); }
   }
@@ -2805,16 +2807,10 @@
   function iofSave() { try { localStorage.setItem(IOF_KEY, JSON.stringify(iof)); } catch (e) {} }
   function iofNum(v) { var n = parseFloat(String(v === undefined || v === null ? "" : v).replace(/\s/g, "").replace(",", ".")); return isNaN(n) || n < 0 ? null : n; }
   function iofCalc() {
-    var ppl = Math.max(1, Math.min(20, parseInt(iof.people, 10) || 1)), fp = iofNum(iof.flight.price);
-    var hotels = iof.hotels.map(function (h, i) {
-      var a = iofNum(h.price), hpp = a === null ? null : (h.basis === "person" ? a : a / ppl);
-      var pp = hpp === null ? null : (fp || 0) + hpp;
-      return { h: h, i: i, hpp: hpp, pp: pp, total: pp === null ? null : pp * ppl };
-    });
-    var priced = hotels.filter(function (x) { return x.pp !== null; }), best = null;
-    priced.forEach(function (x) { if (!best || x.pp < best.pp) best = x; });
-    var from = best ? best.pp : (fp !== null ? fp : null);
-    return { ppl: ppl, fp: fp, hotels: hotels, best: best, from: from, fromTotal: from === null ? null : from * ppl };
+    var ppl = Math.max(1, Math.min(20, parseInt(iof.people, 10) || 1));
+    var offers = iof.offers.map(function (o, i) { var p = iofNum(o.price); return { o: o, i: i, pp: p, total: p === null ? null : p * ppl }; });
+    var best = null; offers.forEach(function (x) { if (x.pp !== null && (!best || x.pp < best.pp)) best = x; });
+    return { ppl: ppl, offers: offers, best: best, from: best ? best.pp : null, fromTotal: best ? best.total : null, priced: offers.filter(function (x) { return x.pp !== null; }).length };
   }
   function iofDate(v) {
     if (!v) return "";
@@ -2822,36 +2818,38 @@
     return m ? m[3] + "." + m[2] + "." + m[1] : String(v);
   }
   function iofLink(u) { u = String(u || "").trim(); if (!/^https?:\/\//i.test(u)) return ""; return tdConvert(u) || u; }
+  function iofLinkStatus(u) {
+    u = String(u || "").trim(); if (!u) return "";
+    if (!/^https?:\/\//i.test(u)) return "⚠ Link musi zaczynać się od https://";
+    return tdConvert(u) && tdConvert(u) !== u ? "✔ Link zostanie zamieniony na Twój link afiliacyjny" : "⚠ Brak reguły afiliacyjnej dla tej domeny (dodaj ją w Ustawieniach) — link pójdzie bez prowizji";
+  }
   function iofDocHtml() {
-    var c = iofCalc(), f = iof.flight, today = new Date().toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw" });
+    var c = iofCalc(), today = new Date().toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw" });
     var fact = function (ico, label, val) { return val ? '<div class="iof-fact"><span>' + ico + " " + label + "</span><b>" + escapeHtml(val) + "</b></div>" : ""; };
-    var facts = fact("📅", "Termin", iof.dates) + fact("🌙", "Liczba nocy", iof.nights ? String(iof.nights) : "") + fact("👥", "Podróżni", c.ppl + (c.ppl === 1 ? " osoba" : c.ppl < 5 ? " osoby" : " osób")) + fact("🛫", "Wylot z", iof.from);
-    var btn = function (href, label) { return href ? '<a class="iof-btn" target="_blank" rel="noopener sponsored" href="' + escapeHtml(href) + '">' + label + " →</a>" : ""; };
+    var facts = fact("👥", "Podróżni", c.ppl + (c.ppl === 1 ? " osoba" : c.ppl < 5 ? " osoby" : " osób")) + fact("🏷️", "Biuro podróży", iof.agency) + fact("📋", "Liczba propozycji", c.offers.length ? String(c.offers.length) : "");
     var html = '<div class="iof-doc">' +
       '<div class="iof-top"><img class="iof-logo" src="/logo.png" alt="latajzgorylem.pl" width="96" height="96"><div class="iof-top-r"><div class="iof-kicker">OFERTA INDYWIDUALNA</div>' +
         (iof.client ? '<div class="iof-for">Przygotowana dla: <b>' + escapeHtml(iof.client) + "</b></div>" : "") +
         '<div class="iof-small">Przygotowano: ' + escapeHtml(today) + (iof.valid ? " · <b>Oferta ważna do: " + escapeHtml(iofDate(iof.valid)) + "</b>" : "") + "</div></div></div>" +
       (iof.photo ? '<div class="iof-hero"><img src="' + escapeHtml(iof.photo) + '" alt=""><div class="iof-hero-t">' + escapeHtml(iof.dest || "Twoja podróż") + "</div></div>" : '<h1 class="iof-title">' + escapeHtml(iof.dest || "Twoja podróż") + "</h1>") +
-      (facts ? '<div class="iof-facts">' + facts + "</div>" : "") +
-      (c.from !== null ? '<div class="iof-price"><div class="iof-price-l">' + (c.hotels.some(function (x) { return x.pp !== null; }) ? "Cena lotu + noclegu od" : "Cena lotu") + '</div><div class="iof-price-big">' + escapeHtml(formatPrice(c.from, "PLN")) + ' <small>NA OSOBĘ</small></div><div class="iof-price-sm">razem dla ' + c.ppl + (c.ppl === 1 ? " osoby" : " osób") + ": " + escapeHtml(formatPrice(c.fromTotal, "PLN")) + "</div></div>" : "");
-    if (f.route || f.dates || f.airline || f.bag || c.fp !== null || f.link || f.shot) {
-      html += '<div class="iof-sec"><h2>✈️ Lot</h2><div class="iof-row"><div>' +
-        (f.route ? '<div class="iof-route">' + escapeHtml(f.route) + "</div>" : "") +
-        (f.dates ? '<div class="iof-line">📅 ' + escapeHtml(f.dates) + "</div>" : "") +
-        (f.airline ? '<div class="iof-line">🛩 ' + escapeHtml(f.airline) + "</div>" : "") +
-        (f.bag ? '<div class="iof-line">🧳 ' + escapeHtml(f.bag) + "</div>" : "") + "</div>" +
-        (c.fp !== null ? '<div class="iof-amt"><b>' + escapeHtml(formatPrice(c.fp, "PLN")) + '</b><span>za osobę</span><small>razem ' + escapeHtml(formatPrice(c.fp * c.ppl, "PLN")) + "</small></div>" : "") + "</div>" +
-        (f.shot ? '<img class="iof-shot" src="' + escapeHtml(f.shot) + '" alt="Szczegóły lotu">' : "") + btn(iofLink(f.link), "Zarezerwuj lot") + "</div>";
-    }
-    if (c.hotels.length) {
-      html += '<div class="iof-sec"><h2>🏨 Propozycje noclegu</h2>';
-      c.hotels.forEach(function (x, n) {
-        var h = x.h, isBest = c.best === x && c.hotels.filter(function (y) { return y.pp !== null; }).length > 1, imgs = (h.imgs || []).filter(Boolean);
-        html += '<div class="iof-card"><div class="iof-card-h"><b>Propozycja numer ' + (n + 1) + ": " + escapeHtml(h.name || "Nocleg") + (h.stars ? " " + "★".repeat(Math.max(1, Math.min(5, parseInt(h.stars, 10) || 0))) : "") + "</b>" + (isBest ? '<span class="iof-badge">najtańsza</span>' : "") + "</div>" +
-          (h.board ? '<div class="iof-line">🍽 ' + escapeHtml(h.board) + "</div>" : "") +
-          (imgs.length ? '<div class="iof-imgs n' + Math.min(imgs.length, 3) + '">' + imgs.slice(0, 3).map(function (u) { return '<img src="' + escapeHtml(u) + '" alt="">'; }).join("") + "</div>" : "") +
-          (x.pp !== null ? '<div class="iof-amt row"><div><span>nocleg</span> <b class="s">' + escapeHtml(formatPrice(x.hpp, "PLN")) + ' / os.</b></div><div class="iof-sum"><span>lot + nocleg</span> <b>' + escapeHtml(formatPrice(x.pp, "PLN")) + ' <em>/ os.</em></b><small>razem ' + escapeHtml(formatPrice(x.total, "PLN")) + "</small></div></div>" : "") +
-          btn(iofLink(h.link), "Zarezerwuj nocleg") + "</div>";
+      '<div class="iof-facts">' + facts + "</div>" +
+      (c.from !== null ? '<div class="iof-price"><div class="iof-price-l">' + (c.priced > 1 ? "Najtańsza propozycja — cena od" : "Cena wycieczki") + '</div><div class="iof-price-big">' + escapeHtml(formatPrice(c.from, "PLN")) + ' <small>NA OSOBĘ</small></div><div class="iof-price-sm">razem dla ' + c.ppl + (c.ppl === 1 ? " osoby" : " osób") + ": " + escapeHtml(formatPrice(c.fromTotal, "PLN")) + "</div></div>" : "");
+    if (c.offers.length) {
+      html += '<div class="iof-sec"><h2>🏖️ ' + (c.offers.length > 1 ? "Propozycje wycieczek" : "Propozycja wycieczki") + "</h2>";
+      c.offers.forEach(function (x, n) {
+        var o = x.o, isBest = c.best === x && c.priced > 1, meta = [];
+        if (o.resort) meta.push("📍 " + o.resort);
+        if (o.when) meta.push("📅 " + o.when);
+        if (o.nights) meta.push("🌙 " + o.nights + " " + (parseInt(o.nights, 10) === 1 ? "noc" : "nocy"));
+        if (o.from) meta.push("🛫 wylot z: " + o.from);
+        if (o.board) meta.push("🍽 " + o.board);
+        var href = iofLink(o.url);
+        html += '<div class="iof-card"><div class="iof-card-h"><b>Propozycja numer ' + (n + 1) + ": " + escapeHtml(o.hotel || "Oferta") + (o.stars ? " " + "★".repeat(Math.max(1, Math.min(5, parseInt(o.stars, 10) || 1))) : "") + "</b>" + (isBest ? '<span class="iof-badge">najtańsza</span>' : "") + "</div>" +
+          '<div class="iof-row"><div>' + (meta.length ? '<div class="iof-meta">' + meta.map(function (m) { return "<span>" + escapeHtml(m) + "</span>"; }).join("") + "</div>" : "") + (o.note ? '<div class="iof-line">ℹ️ ' + escapeHtml(o.note) + "</div>" : "") + "</div>" +
+          (x.pp !== null ? '<div class="iof-amt"><b>' + escapeHtml(formatPrice(x.pp, "PLN")) + '</b><span>za osobę</span><small>razem ' + escapeHtml(formatPrice(x.total, "PLN")) + "</small></div>" : "") + "</div>" +
+          (o.image ? '<img class="iof-photo" src="' + escapeHtml(o.image) + '" alt="' + escapeHtml(o.hotel || "") + '">' : "") +
+          (o.shot ? '<img class="iof-shot" src="' + escapeHtml(o.shot) + '" alt="Oferta ' + escapeHtml(o.hotel || "") + '">' : "") +
+          (href ? '<a class="iof-btn" target="_blank" rel="noopener sponsored" href="' + escapeHtml(href) + '">Zobacz ofertę i zarezerwuj →</a>' : "") + "</div>";
       });
       html += "</div>";
     }
@@ -2860,22 +2858,23 @@
       html += '<div class="iof-sec iof-two">' + (iof.incl.trim() ? '<div><h2>✅ W cenie</h2><ul>' + list(iof.incl) + "</ul></div>" : "") + (iof.extra.trim() ? '<div><h2>ℹ️ Dodatkowo / ważne</h2><ul>' + list(iof.extra) + "</ul></div>" : "") + "</div>";
     }
     html += '<div class="iof-foot">' + (iof.contact.trim() ? '<div class="iof-contact">📞 ' + escapeHtml(iof.contact.trim()).replace(/\n/g, "<br>") + "</div>" : "") +
-      '<p>Ceny na dzień ' + escapeHtml(today) + ' — mogą ulec zmianie do czasu rezerwacji, sprawdź aktualną cenę i dostępność u partnera. Przyciski rezerwacji prowadzą do stron partnerów przez linki afiliacyjne: możemy otrzymać prowizję, bez dodatkowych kosztów dla Ciebie.</p>' +
+      '<p>Ceny na dzień ' + escapeHtml(today) + ' — mogą ulec zmianie do czasu rezerwacji, sprawdź aktualną cenę i dostępność u biura podróży. Przyciski prowadzą do stron partnerów przez linki afiliacyjne: możemy otrzymać prowizję, bez dodatkowych kosztów dla Ciebie.</p>' +
       '<div class="iof-brand">latajzgorylem.pl — oferta przygotowana indywidualnie</div></div></div>';
     return html;
   }
   function iofTextSummary() {
-    var c = iofCalc(), f = iof.flight, L = [];
-    L.push("✈️ " + (iof.dest || "Oferta indywidualna") + (iof.client ? " — dla: " + iof.client : ""));
-    if (iof.dates) L.push("📅 " + iof.dates + (iof.nights ? " (" + iof.nights + " nocy)" : ""));
-    if (iof.from) L.push("🛫 Wylot z: " + iof.from);
+    var c = iofCalc(), L = [];
+    L.push("🏖️ " + (iof.dest || "Oferta indywidualna") + (iof.client ? " — dla: " + iof.client : ""));
     L.push("👥 Osób: " + c.ppl);
-    if (f.route) L.push("✈️ Lot: " + f.route + (c.fp !== null ? " — " + formatPrice(c.fp, "PLN") + " / os." : ""));
-    if (iofLink(f.link)) L.push("   Rezerwacja lotu: " + iofLink(f.link));
-    c.hotels.forEach(function (x, n) {
-      L.push("🏨 Propozycja " + (n + 1) + ": " + (x.h.name || "Nocleg") + (x.h.stars ? " " + x.h.stars + "★" : "") + (x.pp !== null ? " — lot + nocleg " + formatPrice(x.pp, "PLN") + " / os. (razem " + formatPrice(x.total, "PLN") + ")" : ""));
-      if (iofLink(x.h.link)) L.push("   Rezerwacja: " + iofLink(x.h.link));
+    c.offers.forEach(function (x, n) {
+      var o = x.o;
+      L.push("");
+      L.push("🏨 Propozycja " + (n + 1) + ": " + (o.hotel || "Oferta") + (o.stars ? " " + o.stars + "★" : "") + (x.pp !== null ? " — " + formatPrice(x.pp, "PLN") + " / os. (razem " + formatPrice(x.total, "PLN") + ")" : ""));
+      var m = [o.resort, o.when, o.nights ? o.nights + " nocy" : "", o.from ? "wylot z: " + o.from : "", o.board].filter(Boolean).join(" · ");
+      if (m) L.push("   " + m);
+      if (iofLink(o.url)) L.push("   👉 " + iofLink(o.url));
     });
+    L.push("");
     if (iof.valid) L.push("⏳ Oferta ważna do: " + iofDate(iof.valid));
     L.push("— latajzgorylem.pl");
     return L.join("\n");
@@ -2887,56 +2886,80 @@
       : '<input id="' + id + '" data-iof="' + path + '" type="' + (opt.type || "text") + '"' + (opt.min !== undefined ? ' min="' + opt.min + '"' : "") + ' placeholder="' + escapeHtml(opt.ph || "") + '" value="' + escapeHtml(val === undefined || val === null ? "" : val) + '">';
     return '<div class="field' + (opt.wide ? " wide" : "") + '"><label for="' + id + '">' + label + "</label>" + inp + "</div>";
   }
-  function iofLinkField(label, path, val) {
-    var id = "iof_" + path.replace(/\W/g, "_");
-    return '<div class="field wide"><label for="' + id + '">' + label + '</label><div class="row-url"><input id="' + id + '" data-iof="' + path + '" type="url" placeholder="https://… (wklej zwykły link — przycisk obok zamieni go na afiliacyjny)" value="' + escapeHtml(val || "") + '"><button type="button" class="btn ghost small iof-conv" data-for="' + id + '">🔗 Travelpayouts</button></div></div>';
-  }
-  function iofPhotoField(label, key, urls) {
-    var list = (Array.isArray(urls) ? urls : (urls ? [urls] : [])).filter(Boolean);
-    return '<div class="field wide"><label>' + label + '</label><div class="iof-photos">' + list.map(function (u, i) { return '<span class="iof-ph"><img src="' + escapeHtml(u) + '" alt=""><button type="button" class="iof-ph-x" data-iof-phx="' + key + ":" + i + '" title="Usuń">✕</button></span>'; }).join("") +
-      '<input type="file" accept="image/*" multiple data-iof-file="' + key + '"></div></div>';
-  }
   function iofFormHtml() {
-    var f = iof.flight;
-    var hot = iof.hotels.map(function (h, i) {
-      var k = "h" + i;
-      return '<div class="iof-hform"><div class="iof-hform-h"><b>Propozycja numer ' + (i + 1) + '</b><button type="button" class="btn ghost small" data-iof-hrm="' + i + '">✕ Usuń</button></div><div class="iof-grid">' +
-        '<div class="field wide"><label>Nazwa hotelu</label><input data-iof="hotels.' + i + '.name" value="' + escapeHtml(h.name || "") + '" placeholder="np. Hotel Sol Beach"></div>' +
-        '<div class="field"><label>Gwiazdki</label><select data-iof="hotels.' + i + '.stars"><option value="">—</option>' + [1, 2, 3, 4, 5].map(function (n) { return '<option value="' + n + '"' + (String(h.stars) === String(n) ? " selected" : "") + ">" + n + "★</option>"; }).join("") + "</select></div>" +
-        '<div class="field"><label>Wyżywienie</label><select data-iof="hotels.' + i + '.board">' + IOF_BOARDS.map(function (b) { return '<option' + (h.board === b ? " selected" : "") + ">" + b + "</option>"; }).join("") + "</select></div>" +
-        '<div class="field"><label>Cena noclegu (zł)</label><input type="number" min="0" data-iof="hotels.' + i + '.price" value="' + escapeHtml(h.price === undefined ? "" : h.price) + '"></div>' +
-        '<div class="field"><label>Ta kwota jest</label><select data-iof="hotels.' + i + '.basis"><option value="total"' + (h.basis !== "person" ? " selected" : "") + '>za całość (wszystkie osoby)</option><option value="person"' + (h.basis === "person" ? " selected" : "") + ">za osobę</option></select></div>" +
-        iofLinkField("Link do rezerwacji noclegu", "hotels." + i + ".link", h.link) +
-        iofPhotoField("Zdjęcia hotelu / zrzuty (maks. 3)", k, h.imgs) + "</div></div>";
+    var rows = iof.offers.map(function (o, i) {
+      var p = "offers." + i + ".";
+      return '<div class="iof-hform' + (o.ai ? " ai" : "") + '"><div class="iof-hform-h"><b>Propozycja numer ' + (i + 1) + "</b>" + (o.ai ? '<span class="iof-aitag">✨ z AI — sprawdź dane</span>' : "") + '<button type="button" class="btn ghost small" data-iof-hrm="' + i + '">✕ Usuń</button></div><div class="iof-grid">' +
+        '<div class="field wide"><label>Hotel</label><input data-iof="' + p + 'hotel" value="' + escapeHtml(o.hotel) + '" placeholder="np. Hotel Sol Beach"></div>' +
+        '<div class="field"><label>Miejscowość / rejon</label><input data-iof="' + p + 'resort" value="' + escapeHtml(o.resort) + '"></div>' +
+        '<div class="field"><label>Gwiazdki</label><select data-iof="' + p + 'stars"><option value="">—</option>' + [1, 2, 3, 4, 5].map(function (n) { return '<option value="' + n + '"' + (String(o.stars) === String(n) ? " selected" : "") + ">" + n + "★</option>"; }).join("") + "</select></div>" +
+        '<div class="field"><label>Wyżywienie</label><select data-iof="' + p + 'board">' + IOF_BOARDS.map(function (b) { return '<option' + (o.board === b ? " selected" : "") + ">" + b + "</option>"; }).join("") + "</select></div>" +
+        '<div class="field"><label>Noce</label><input type="number" min="1" data-iof="' + p + 'nights" value="' + escapeHtml(o.nights) + '"></div>' +
+        '<div class="field"><label>Termin</label><input data-iof="' + p + 'when" value="' + escapeHtml(o.when) + '" placeholder="np. 12–19.01.2027"></div>' +
+        '<div class="field"><label>Wylot z</label><input data-iof="' + p + 'from" value="' + escapeHtml(o.from) + '"></div>' +
+        '<div class="field"><label>Cena za osobę (zł)</label><input type="number" min="0" data-iof="' + p + 'price" value="' + escapeHtml(o.price) + '"></div>' +
+        '<div class="field wide"><label>Uwaga (opcjonalnie)</label><input data-iof="' + p + 'note" value="' + escapeHtml(o.note) + '"></div>' +
+        '<div class="field wide"><label>Link do oferty (TUI, Exim, inne biuro)</label><input type="url" data-iof="' + p + 'url" data-iof-link="1" value="' + escapeHtml(o.url) + '" placeholder="https://… (wklej zwykły link — zamieni się na Twój afiliacyjny)"><div class="hint iof-ls" data-iof-ls="' + i + '">' + escapeHtml(iofLinkStatus(o.url)) + "</div></div>" +
+        '<div class="field wide"><label>Zrzut ekranu oferty (pokaże się pod ofertą)</label><div class="iof-photos">' + (o.shot ? '<span class="iof-ph"><img src="' + escapeHtml(o.shot) + '" alt=""><button type="button" class="iof-ph-x" data-iof-phx="shot:' + i + '" title="Usuń">✕</button></span>' : "") + '<input type="file" accept="image/*" data-iof-file="shot:' + i + '"></div></div>' +
+        '<div class="field wide"><label>Zdjęcie hotelu (opcjonalnie)</label><div class="iof-photos">' + (o.image ? '<span class="iof-ph"><img src="' + escapeHtml(o.image) + '" alt=""><button type="button" class="iof-ph-x" data-iof-phx="image:' + i + '" title="Usuń">✕</button></span>' : "") + '<input type="file" accept="image/*" data-iof-file="image:' + i + '"></div></div>' +
+        "</div></div>";
     }).join("");
     return '<div class="iof-form">' +
-      '<details open><summary>1. Podstawowe informacje</summary><div class="iof-grid">' +
-        iofField("Dla kogo (imię klienta, opcjonalnie)", "client", iof.client, { ph: "np. Anna i Piotr" }) + iofField("Kierunek / tytuł oferty", "dest", iof.dest, { ph: "np. Los Cabos, Meksyk" }) +
-        iofField("Termin", "dates", iof.dates, { ph: "np. 11–18 grudnia 2026" }) + iofField("Liczba nocy", "nights", iof.nights, { type: "number", min: 0 }) +
-        iofField("Liczba osób", "people", iof.people, { type: "number", min: 1 }) + iofField("Wylot z", "from", iof.from, { ph: "np. Praga, Berlin" }) +
-        iofField("Oferta ważna do", "valid", iof.valid, { type: "date" }) + iofPhotoField("Zdjęcie główne (miejsce / hotel)", "hero", iof.photo) + "</div></details>" +
-      '<details open><summary>2. ✈️ Lot</summary><div class="iof-grid">' +
-        iofField("Trasa", "flight.route", f.route, { ph: "np. Praga → Los Cabos → Praga" }) + iofField("Daty i godziny", "flight.dates", f.dates, { ph: "np. 11.12 08:15 → 14:30 · powrót 18.12 16:40" }) +
-        iofField("Linia / przesiadki", "flight.airline", f.airline, { ph: "np. Condor, 1 przesiadka" }) + iofField("Bagaż", "flight.bag", f.bag, { ph: "np. bagaż podręczny + 23 kg" }) +
-        iofField("Cena lotu za osobę (zł)", "flight.price", f.price, { type: "number", min: 0 }) + iofLinkField("Link do rezerwacji lotu", "flight.link", f.link) +
-        iofPhotoField("Zrzut / karta lotu (opcjonalnie)", "flightshot", f.shot) + "</div></details>" +
-      '<details open><summary>3. 🏨 Propozycje noclegu (' + iof.hotels.length + ")</summary>" + hot + '<button type="button" class="btn ghost small" id="iof_addH">+ Dodaj propozycję noclegu</button></details>' +
-      '<details open><summary>4. W cenie, uwagi, kontakt</summary><div class="iof-grid">' +
-        iofField("W cenie (każda pozycja w nowej linii)", "incl", iof.incl, { area: true, wide: true, ph: "bagaż podręczny\ntransfer z lotniska\nubezpieczenie" }) +
-        iofField("Dodatkowo płatne / ważne (nowa linia = nowy punkt)", "extra", iof.extra, { area: true, wide: true, ph: "bagaż rejestrowany +150 zł\nwiza nie jest wymagana" }) +
+      '<details open><summary>1. Dla kogo i kiedy</summary><div class="iof-grid">' +
+        iofField("Dla kogo (imię klienta, opcjonalnie)", "client", iof.client, { ph: "np. Anna i Piotr" }) + iofField("Kierunek / tytuł oferty", "dest", iof.dest, { ph: "np. Egipt – Hurghada" }) +
+        iofField("Liczba osób", "people", iof.people, { type: "number", min: 1 }) + iofField("Biuro podróży", "agency", iof.agency, { ph: "np. TUI, Exim Tours" }) +
+        iofField("Oferta ważna do", "valid", iof.valid, { type: "date" }) +
+        '<div class="field wide"><label>Zdjęcie główne (opcjonalnie)</label><div class="iof-photos">' + (iof.photo ? '<span class="iof-ph"><img src="' + escapeHtml(iof.photo) + '" alt=""><button type="button" class="iof-ph-x" data-iof-phx="hero:0" title="Usuń">✕</button></span>' : "") + '<input type="file" accept="image/*" data-iof-file="hero"></div></div></div></details>' +
+      '<details open><summary>2. 🏖️ Oferty z biura (' + iof.offers.length + ")</summary>" +
+        '<div class="iof-ai"><b>✨ Wczytaj oferty ze zrzutów ekranu (AI)</b><div class="hint">Zrób zrzut oferty na stronie TUI / Exim / innego biura i wciśnij <b>Ctrl+V</b> (Cmd+V) w tym panelu — AI odczyta hotel, termin, cenę, wylot i doda zrzut pod ofertą. Możesz też wybrać pliki.</div>' +
+        '<div class="iof-ai-row"><input type="file" id="iof_aiFiles" accept="image/*" multiple> <button type="button" class="btn primary small" id="iof_aiBtn">✨ Odczytaj oferty</button> <span id="iof_aiMsg" class="hint"></span></div></div>' +
+        rows + '<button type="button" class="btn ghost small" id="iof_addH">+ Dodaj ofertę ręcznie</button></details>' +
+      '<details open><summary>3. W cenie, uwagi, kontakt</summary><div class="iof-grid">' +
+        iofField("W cenie (każda pozycja w nowej linii)", "incl", iof.incl, { area: true, wide: true, ph: "przelot\ntransfer z lotniska\nubezpieczenie" }) +
+        iofField("Dodatkowo płatne / ważne (nowa linia = nowy punkt)", "extra", iof.extra, { area: true, wide: true, ph: "opłata klimatyczna płatna na miejscu" }) +
         iofField("Kontakt (telefon, e-mail, Instagram…)", "contact", iof.contact, { area: true, rows: 2, wide: true, ph: "tel. 600 000 000 · kontakt@latajzgorylem.pl" }) + "</div></details></div>";
   }
   function renderIof() {
     if (!iof) iof = iofLoad();
     return '<div class="iof-wrap"><div class="card iof-bar"><h2 style="margin:0 0 4px;font-size:18px">📄 Oferta indywidualna dla klienta</h2>' +
-      '<p class="muted" style="margin:0 0 10px;font-size:13px">Wypełnij formularz — oferta z logo, zdjęciami, ceną i przyciskami rezerwacji buduje się obok na żywo. Kliknij <b>„Pobierz PDF”</b> (w oknie drukowania wybierz „Zapisz jako PDF”) i wyślij klientowi. Przyciski rezerwacji w PDF są klikalne. Szkic zapisuje się automatycznie w tej przeglądarce.</p>' +
+      '<p class="muted" style="margin:0 0 10px;font-size:13px">Wklej zrzut oferty z biura (<b>Ctrl+V</b>) — AI odczyta dane, a oferta z logo, ceną, zrzutem i przyciskiem rezerwacji buduje się obok na żywo. Kliknij <b>„Pobierz PDF”</b> (w oknie drukowania wybierz „Zapisz jako PDF”). Przyciski w PDF są klikalne. Szkic zapisuje się w tej przeglądarce.</p>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="iof_pdf">📄 Pobierz PDF / drukuj</button><button type="button" class="btn ghost" id="iof_copy">📋 Kopiuj jako wiadomość (WhatsApp / SMS)</button><button type="button" class="btn ghost" id="iof_new">🗑 Nowa oferta (wyczyść)</button></div><div id="iof_msg" class="hint" role="status" style="margin-top:6px"></div></div>' +
       '<div class="iof-cols"><div id="iof_form">' + iofFormHtml() + '</div><div class="iof-prev"><div class="iof-prev-h">Podgląd — tak zobaczy to klient</div><div id="iof_doc">' + iofDocHtml() + "</div></div></div></div>";
   }
+  function iofReadShots(files, cb) {
+    Promise.all(files.map(function (f) { return new Promise(function (res) { readAndShrinkImage(f, res, 1500, 0.82); }); })).then(function (u) { cb(u.filter(Boolean)); });
+  }
+  function iofAiRead(files) {
+    var msg = byId("iof_aiMsg"), btn = byId("iof_aiBtn"); if (!msg || !btn) return;
+    files = Array.prototype.slice.call(files || [], 0, 4);
+    if (!files.length) { msg.textContent = "Najpierw wklej (Ctrl+V) lub wybierz zrzut oferty."; return; }
+    var old = btn.textContent; btn.disabled = true; btn.textContent = "Czytam zrzuty…"; msg.textContent = "";
+    var shots = [];
+    iofReadShots(files, function (urls) {
+      shots = urls;
+      if (!urls.length) { btn.disabled = false; btn.textContent = old; msg.textContent = "❌ Nie udało się wczytać zrzutów."; return; }
+      SB.callFn("describe", { mode: "holidays", images: urls, destination: iof.dest || "", agency: iof.agency || "" }).then(function (r) {
+        if (!r || !Array.isArray(r.items)) throw new Error("Funkcja „describe” w Supabase jest w starej wersji — wklej nowy index.ts i kliknij Deploy.");
+        var room = Math.max(0, 15 - iof.offers.length), add = r.items.slice(0, room);
+        add.forEach(function (x) {
+          var u = typeof x.shot === "number" ? shots[x.shot] : (shots.length === 1 ? shots[0] : "");
+          iof.offers.push(iofOfferEmpty({ hotel: x.hotel, resort: x.resort, stars: x.stars, board: x.board && HOLIDAY_BOARDS[x.board] ? HOLIDAY_BOARDS[x.board] : (x.board || ""), nights: x.nights, from: x.from, when: x.when, price: x.price, note: x.note, shot: u || "", ai: true }));
+        });
+        if (r.destination && !iof.dest) iof.dest = r.destination;
+        if (r.agency && !iof.agency) iof.agency = r.agency;
+        iofRefreshAll();
+        var m2 = byId("iof_aiMsg"); if (m2) m2.textContent = "✔ Odczytano ofert: " + add.length + ". Zrzut dodano pod każdą ofertą — sprawdź pomarańczowe pola i dopisz link do oferty.";
+        var fi = byId("iof_aiFiles"); if (fi) fi.value = "";
+      }).then(function () { var b = byId("iof_aiBtn"); if (b) { b.disabled = false; b.textContent = old; } }, function (err) {
+        var b = byId("iof_aiBtn"); if (b) { b.disabled = false; b.textContent = old; }
+        var m3 = byId("iof_aiMsg"); if (m3) m3.textContent = "❌ " + ((err && err.message) || "Nie udało się odczytać ofert.");
+      });
+    });
+  }
+  function iofRefreshAll() { var f = byId("iof_form"), d = byId("iof_doc"); if (f) f.innerHTML = iofFormHtml(); if (d) d.innerHTML = iofDocHtml(); iofSave(); }
   function wireIof() {
     var msg = byId("iof_msg");
     function refreshDoc() { byId("iof_doc").innerHTML = iofDocHtml(); }
-    function refreshAll() { byId("iof_form").innerHTML = iofFormHtml(); refreshDoc(); iofSave(); }
     function setPath(path, val) {
       var parts = path.split("."), o = iof, i;
       for (i = 0; i < parts.length - 1; i++) o = o[parts[i]];
@@ -2946,42 +2969,38 @@
     form.addEventListener("input", function (e) {
       var el = e.target; if (!el.getAttribute) return;
       var path = el.getAttribute("data-iof"); if (!path) return;
-      setPath(path, el.value); refreshDoc(); iofSave();
+      setPath(path, el.value);
+      if (/^offers\.\d+\./.test(path) && !/\.url$/.test(path)) { var oi = parseInt(path.split(".")[1], 10); if (iof.offers[oi]) iof.offers[oi].ai = false; var tag = el.closest(".iof-hform"); if (tag) { tag.classList.remove("ai"); var t = tag.querySelector(".iof-aitag"); if (t) t.remove(); } }
+      if (el.hasAttribute("data-iof-link")) { var ls = el.parentNode.querySelector(".iof-ls"); if (ls) ls.textContent = iofLinkStatus(el.value); }
+      refreshDoc(); iofSave();
     });
     form.addEventListener("change", function (e) {
       var el = e.target;
       if (el.getAttribute && el.getAttribute("data-iof") && el.tagName === "SELECT") { setPath(el.getAttribute("data-iof"), el.value); refreshDoc(); iofSave(); return; }
       var key = el.getAttribute && el.getAttribute("data-iof-file");
       if (!key || !el.files || !el.files.length) return;
-      var files = Array.prototype.slice.call(el.files, 0, 3);
-      msg.textContent = "⏳ Wczytuję zdjęcia…";
-      Promise.all(files.map(function (f) { return new Promise(function (res) { readAndShrinkImage(f, res, 1400, 0.85); }); })).then(function (urls) {
-        urls = urls.filter(Boolean);
-        if (key === "hero") iof.photo = urls[0] || iof.photo;
-        else if (key === "flightshot") iof.flight.shot = urls[0] || iof.flight.shot;
-        else { var h = iof.hotels[parseInt(key.slice(1), 10)]; if (h) h.imgs = (h.imgs || []).concat(urls).slice(0, 3); }
-        msg.textContent = urls.length ? "✔ Dodano zdjęcia." : "Nie udało się wczytać zdjęcia."; refreshAll();
+      msg.textContent = "⏳ Wczytuję zdjęcie…";
+      iofReadShots([el.files[0]], function (urls) {
+        var u = urls[0]; if (!u) { msg.textContent = "Nie udało się wczytać zdjęcia."; return; }
+        var pr = key.split(":");
+        if (pr[0] === "hero") iof.photo = u; else if (iof.offers[parseInt(pr[1], 10)]) iof.offers[parseInt(pr[1], 10)][pr[0]] = u;
+        msg.textContent = "✔ Dodano zdjęcie."; iofRefreshAll();
       });
     });
     form.addEventListener("click", function (e) {
       var t = e.target;
-      var cv = t.closest && t.closest(".iof-conv");
-      if (cv) {
-        var inp = byId(cv.getAttribute("data-for")), old = cv.textContent; cv.disabled = true; cv.textContent = "⏳…";
-        convertAffiliateLink(inp.value, "").then(function (u) { inp.value = u; setPath(inp.getAttribute("data-iof"), u); refreshDoc(); iofSave(); msg.textContent = "✔ Link zamieniony na afiliacyjny."; },
-          function (err) { msg.textContent = "Nie udało się zamienić linku: " + ((err && err.message) || err); }).then(function () { cv.disabled = false; cv.textContent = old; });
-        return;
-      }
       var hx = t.closest && t.closest("[data-iof-hrm]");
-      if (hx) { iof.hotels.splice(parseInt(hx.getAttribute("data-iof-hrm"), 10), 1); refreshAll(); return; }
+      if (hx) { iof.offers.splice(parseInt(hx.getAttribute("data-iof-hrm"), 10), 1); iofRefreshAll(); return; }
       var px = t.closest && t.closest("[data-iof-phx]");
       if (px) {
-        var pr = px.getAttribute("data-iof-phx").split(":"), k = pr[0], ix = parseInt(pr[1], 10);
-        if (k === "hero") iof.photo = ""; else if (k === "flightshot") iof.flight.shot = ""; else { var hh = iof.hotels[parseInt(k.slice(1), 10)]; if (hh) hh.imgs.splice(ix, 1); }
-        refreshAll(); return;
+        var pr = px.getAttribute("data-iof-phx").split(":"), ix = parseInt(pr[1], 10);
+        if (pr[0] === "hero") iof.photo = ""; else if (iof.offers[ix]) iof.offers[ix][pr[0]] = "";
+        iofRefreshAll(); return;
       }
-      if (t.id === "iof_addH") { iof.hotels.push({ name: "", stars: "", board: "", price: "", basis: "total", link: "", imgs: [] }); refreshAll(); }
+      if (t.id === "iof_aiBtn") { iofAiRead(byId("iof_aiFiles").files); return; }
+      if (t.id === "iof_addH") { if (iof.offers.length >= 15) { msg.textContent = "Maksymalnie 15 ofert."; return; } iof.offers.push(iofOfferEmpty()); iofRefreshAll(); }
     });
+    form.addEventListener("change", function (e) { if (e.target && e.target.id === "iof_aiFiles" && e.target.files.length) iofAiRead(e.target.files); });
     byId("iof_pdf").addEventListener("click", function () {
       document.body.classList.add("print-iof");
       var done = function () { document.body.classList.remove("print-iof"); window.removeEventListener("afterprint", done); };
@@ -2997,7 +3016,7 @@
     });
     byId("iof_new").addEventListener("click", function () {
       if (!window.confirm("Wyczyścić wszystkie pola oferty?")) return;
-      iof = iofEmpty(); refreshAll(); msg.textContent = "Wyczyszczono — możesz zacząć nową ofertę.";
+      iof = iofEmpty(); iofRefreshAll(); msg.textContent = "Wyczyszczono — możesz zacząć nową ofertę.";
     });
   }
 
@@ -4178,6 +4197,10 @@
 
     var ae = document.activeElement;
     var closest = function (sel) { return ae && ae.closest ? ae.closest(sel) : null; };
+    // oferta indywidualna: wklejony zrzut → odczyt AI
+    if (byId("iof_aiFiles")) {
+      var idt = [file]; iofAiRead(idt); return;
+    }
     // zrzut noclegu (AI w „Alternatywnych noclegach”): dodaj do pola plików (do 4), odczyt rusza przyciskiem
     var lodgeBox = closest(".po-box");
     if (lodgeBox) {
