@@ -2786,7 +2786,7 @@
   var IOF_KEY = "latajzgorylem_iof_draft_v2";
   var IOF_BOARDS = ["", "Bez wyżywienia", "Śniadania", "Śniadania i obiadokolacje", "Pełne wyżywienie", "All inclusive"];
   function iofEmpty() {
-    return { client: "", dest: "", people: 2, valid: "", photo: "", agency: "", offers: [], incl: "", extra: "", contact: "" };
+    return { client: "", dest: "", people: 2, show: "person", valid: "", photo: "", agency: "", offers: [], incl: "", extra: "", contact: "" };
   }
   function iofOfferEmpty(x) {
     x = x || {};
@@ -2812,6 +2812,11 @@
     var best = null; offers.forEach(function (x) { if (x.pp !== null && (!best || x.pp < best.pp)) best = x; });
     return { ppl: ppl, offers: offers, best: best, from: best ? best.pp : null, fromTotal: best ? best.total : null, priced: offers.filter(function (x) { return x.pp !== null; }).length };
   }
+  function iofPriceParts(pp, total, ppl) {
+    var byAll = iof.show === "total";
+    return { big: formatPrice(byAll ? total : pp, "PLN"), label: byAll ? "ŁĄCZNIE ZA " + ppl + (ppl === 1 ? " OSOBĘ" : ppl < 5 ? " OSOBY" : " OSÓB") : "NA OSOBĘ",
+      small: byAll ? "za osobę: " + formatPrice(pp, "PLN") : "razem dla " + ppl + (ppl === 1 ? " osoby" : " osób") + ": " + formatPrice(total, "PLN") };
+  }
   function iofDate(v) {
     if (!v) return "";
     var m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -2833,7 +2838,7 @@
         '<div class="iof-small">Przygotowano: ' + escapeHtml(today) + (iof.valid ? " · <b>Oferta ważna do: " + escapeHtml(iofDate(iof.valid)) + "</b>" : "") + "</div></div></div>" +
       (iof.photo ? '<div class="iof-hero"><img src="' + escapeHtml(iof.photo) + '" alt=""><div class="iof-hero-t">' + escapeHtml(iof.dest || "Twoja podróż") + "</div></div>" : '<h1 class="iof-title">' + escapeHtml(iof.dest || "Twoja podróż") + "</h1>") +
       '<div class="iof-facts">' + facts + "</div>" +
-      (c.from !== null ? '<div class="iof-price"><div class="iof-price-l">' + (c.priced > 1 ? "Najtańsza propozycja — cena od" : "Cena wycieczki") + '</div><div class="iof-price-big">' + escapeHtml(formatPrice(c.from, "PLN")) + ' <small>NA OSOBĘ</small></div><div class="iof-price-sm">razem dla ' + c.ppl + (c.ppl === 1 ? " osoby" : " osób") + ": " + escapeHtml(formatPrice(c.fromTotal, "PLN")) + "</div></div>" : "");
+      (c.from !== null ? '<div class="iof-price"><div class="iof-price-l">' + (c.priced > 1 ? "Najtańsza propozycja — cena od" : "Cena wycieczki") + '</div><div class="iof-price-big">' + escapeHtml(iofPriceParts(c.from, c.fromTotal, c.ppl).big) + ' <small>' + iofPriceParts(c.from, c.fromTotal, c.ppl).label + '</small></div><div class="iof-price-sm">' + escapeHtml(iofPriceParts(c.from, c.fromTotal, c.ppl).small) + "</div></div>" : "");
     if (c.offers.length) {
       html += '<div class="iof-sec"><h2>🏖️ ' + (c.offers.length > 1 ? "Propozycje wycieczek" : "Propozycja wycieczki") + "</h2>";
       c.offers.forEach(function (x, n) {
@@ -2846,7 +2851,7 @@
         var href = iofLink(o.url);
         html += '<div class="iof-card"><div class="iof-card-h"><b>Propozycja numer ' + (n + 1) + ": " + escapeHtml(o.hotel || "Oferta") + (o.stars ? " " + "★".repeat(Math.max(1, Math.min(5, parseInt(o.stars, 10) || 1))) : "") + "</b>" + (isBest ? '<span class="iof-badge">najtańsza</span>' : "") + "</div>" +
           '<div class="iof-row"><div>' + (meta.length ? '<div class="iof-meta">' + meta.map(function (m) { return "<span>" + escapeHtml(m) + "</span>"; }).join("") + "</div>" : "") + (o.note ? '<div class="iof-line">ℹ️ ' + escapeHtml(o.note) + "</div>" : "") + "</div>" +
-          (x.pp !== null ? '<div class="iof-amt"><b>' + escapeHtml(formatPrice(x.pp, "PLN")) + '</b><span>za osobę</span><small>razem ' + escapeHtml(formatPrice(x.total, "PLN")) + "</small></div>" : "") + "</div>" +
+          (x.pp !== null ? (function () { var q = iofPriceParts(x.pp, x.total, c.ppl); return '<div class="iof-amt"><b>' + escapeHtml(q.big) + "</b><span>" + (iof.show === "total" ? "łącznie, " + c.ppl + " os." : "za osobę") + "</span><small>" + escapeHtml(q.small) + "</small></div>"; })() : "") + "</div>" +
           (o.image ? '<img class="iof-photo" src="' + escapeHtml(o.image) + '" alt="' + escapeHtml(o.hotel || "") + '">' : "") +
           (o.shot ? '<img class="iof-shot" src="' + escapeHtml(o.shot) + '" alt="Oferta ' + escapeHtml(o.hotel || "") + '">' : "") +
           (href ? '<a class="iof-btn" target="_blank" rel="noopener sponsored" href="' + escapeHtml(href) + '">Zobacz ofertę i zarezerwuj →</a>' : "") + "</div>";
@@ -2869,7 +2874,7 @@
     c.offers.forEach(function (x, n) {
       var o = x.o;
       L.push("");
-      L.push("🏨 Propozycja " + (n + 1) + ": " + (o.hotel || "Oferta") + (o.stars ? " " + o.stars + "★" : "") + (x.pp !== null ? " — " + formatPrice(x.pp, "PLN") + " / os. (razem " + formatPrice(x.total, "PLN") + ")" : ""));
+      L.push("🏨 Propozycja " + (n + 1) + ": " + (o.hotel || "Oferta") + (o.stars ? " " + o.stars + "★" : "") + (x.pp !== null ? (iof.show === "total" ? " — " + formatPrice(x.total, "PLN") + " łącznie za " + c.ppl + " os. (" + formatPrice(x.pp, "PLN") + " / os.)" : " — " + formatPrice(x.pp, "PLN") + " / os. (razem " + formatPrice(x.total, "PLN") + ")") : ""));
       var m = [o.resort, o.when, o.nights ? o.nights + " nocy" : "", o.from ? "wylot z: " + o.from : "", o.board].filter(Boolean).join(" · ");
       if (m) L.push("   " + m);
       if (iofLink(o.url)) L.push("   👉 " + iofLink(o.url));
@@ -2909,6 +2914,7 @@
         iofField("Dla kogo (imię klienta, opcjonalnie)", "client", iof.client, { ph: "np. Anna i Piotr" }) + iofField("Kierunek / tytuł oferty", "dest", iof.dest, { ph: "np. Egipt – Hurghada" }) +
         iofField("Liczba osób", "people", iof.people, { type: "number", min: 1 }) + iofField("Biuro podróży", "agency", iof.agency, { ph: "np. TUI, Exim Tours" }) +
         iofField("Oferta ważna do", "valid", iof.valid, { type: "date" }) +
+        '<div class="field"><label for="iof_show">Jaką cenę pokazać dużą</label><select id="iof_show" data-iof="show"><option value="person"' + (iof.show !== "total" ? " selected" : "") + '>Za osobę (łącznie mała)</option><option value="total"' + (iof.show === "total" ? " selected" : "") + ">Za wszystkich (za osobę mała)</option></select></div>" +
         '<div class="field wide"><label>Zdjęcie główne (opcjonalnie)</label><div class="iof-photos">' + (iof.photo ? '<span class="iof-ph"><img src="' + escapeHtml(iof.photo) + '" alt=""><button type="button" class="iof-ph-x" data-iof-phx="hero:0" title="Usuń">✕</button></span>' : "") + '<input type="file" accept="image/*" data-iof-file="hero"></div></div></div></details>' +
       '<details open><summary>2. 🏖️ Oferty z biura (' + iof.offers.length + ")</summary>" +
         '<div class="iof-ai"><b>✨ Wczytaj oferty ze zrzutów ekranu (AI)</b><div class="hint">Zrób zrzut oferty na stronie TUI / Exim / innego biura i wciśnij <b>Ctrl+V</b> (Cmd+V) w tym panelu — AI odczyta hotel, termin, cenę, wylot i doda zrzut pod ofertą. Możesz też wybrać pliki.</div>' +
