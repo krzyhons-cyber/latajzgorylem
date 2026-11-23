@@ -2081,7 +2081,7 @@
   var draftIgImage = "";
 
   // Optional: turn a plain partner link (e.g. Trip.com) into my Travelpayouts affiliate link (Edge Function "flights", action "convert")
-  function isAlreadyPartnerLink(u) { return /(^|\.)(tp\.media|tpk\.lv|tp\.st|c\d+\.travelpayouts\.com|travelpayouts\.com|clk\.tradedoubler\.com|tradedoubler\.com|link-open\.space|mylead\.global|mylead\.eu|c\.mylead\.eu)(\/|$)/i.test(String(u).replace(/^https?:\/\//i, "")); }
+  function isAlreadyPartnerLink(u) { return /(^|\.)(tp\.media|tpk\.lv|tp\.st|c\d+\.travelpayouts\.com|travelpayouts\.com|clk\.tradedoubler\.com|tradedoubler\.com|link-open\.space|mylead\.global|mylead\.eu|c\.mylead\.eu|naiawork\.com|ad\.admitad\.com)(\/|$)/i.test(String(u).replace(/^https?:\/\//i, "")); }
   // ---- Tradedoubler: linki do wybranych sklepów (np. exim.pl) zamieniamy na link śledzący, bez żadnego API ----
   // Ustawienia (Admin → Ustawienia): tdSiteId = ID Twojej strony (a), tdRules = linie "domena;ID programu;ID reklamy (opcjonalnie)".
   var TD_DEFAULT_SITE = "3506385", TD_DEFAULT_RULES = "exim.pl;334260\neximtours.pl;334260";
@@ -2095,8 +2095,16 @@
   // ---- MyLead i inne sieci: własne linki śledzące (Ustawienia → „domena;link śledzący”) ----
   // Jeśli link zawiera {url}, wstawiamy w to miejsce zakodowany adres strony (deeplink); bez {url} wszystkie linki do domeny prowadzą na Twój link śledzący (strona docelowa kampanii).
   var MY_DEFAULT_RULES = "esky.pl;https://link-open.space/a/QWVP2Ioz9gfOAMX?dl_url={url}";
+  // Reguły wbudowane (zawsze aktywne, jeśli w Ustawieniach nie ma własnej reguły dla tej domeny): Admitad → DiscoverCars
+  var MY_BUILTIN_RULES = "discovercars.com;https://naiawork.com/g/wqjhitsyjqcd03c17db25ea594bb46/?ulp={url}";
   function myRules() {
     var st = state.settings || {}, raw = typeof st.myRules === "string" ? st.myRules : MY_DEFAULT_RULES;
+    var parsed = parseMyRules(raw), have = {};
+    parsed.forEach(function (r) { have[r.domain] = 1; });
+    parseMyRules(MY_BUILTIN_RULES).forEach(function (r) { if (!have[r.domain]) parsed.push(r); });
+    return parsed;
+  }
+  function parseMyRules(raw) {
     return String(raw).split(/\n+/).map(function (l) {
       var i = l.indexOf(";"); if (i < 0) return null;
       var d = l.slice(0, i).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\d*\./, "").replace(/\/.*$/, ""), t = l.slice(i + 1).trim();
