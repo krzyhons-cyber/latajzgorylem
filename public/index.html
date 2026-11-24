@@ -1463,9 +1463,11 @@
       return fresh().then(function () {
         return fetch(dataUrl).then(function (r) { return r.blob(); });
       }).then(function (blob) {
-        var name = Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + ".jpg";
+        var ctype = blob.type === "image/webp" ? "image/webp" : "image/jpeg";
+        var name = Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + (ctype === "image/webp" ? ".webp" : ".jpg");
+        // nazwa pliku jest zawsze nowa, więc można ustawić roczny cache w przeglądarce (mniej pobrań = mniejszy transfer)
         return req("POST", "/storage/v1/object/" + BUCKET + "/" + name, {
-          headers: { "Content-Type": "image/jpeg", "x-upsert": "true" }, body: blob
+          headers: { "Content-Type": ctype, "x-upsert": "true", "cache-control": "max-age=31536000" }, body: blob
         }).then(function () { return URL_ + "/storage/v1/object/public/" + BUCKET + "/" + name; });
       });
     }
@@ -2388,13 +2390,18 @@
       var img = new Image();
       img.onerror = function () { cb(null); };
       img.onload = function () {
-        var maxW = maxWidth || 1000, scale = Math.min(1, maxW / img.width);
+        var maxW = Math.min(maxWidth || 1000, 1200), scale = Math.min(1, maxW / img.width);
         var canvas = document.createElement("canvas");
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        var cx = canvas.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, canvas.width, canvas.height);
+        cx.drawImage(img, 0, 0, canvas.width, canvas.height);
         var dataUrl;
-        try { dataUrl = canvas.toDataURL("image/jpeg", quality || 0.78); } catch (e) { cb(null); return; }
+        try {
+          // WebP jest ok. 30% mniejszy niż JPEG; gdy przeglądarka go nie wspiera, zostaje JPEG
+          dataUrl = canvas.toDataURL("image/webp", Math.min(quality || 0.78, 0.78));
+          if (dataUrl.indexOf("data:image/webp") !== 0) dataUrl = canvas.toDataURL("image/jpeg", Math.min(quality || 0.78, 0.78));
+        } catch (e) { cb(null); return; }
         if (!SB.enabled()) { cb(dataUrl); return; }
         SB.uploadDataUrl(dataUrl).then(function (url) { cb(url); }, function () { cb(null); });
       };
@@ -2980,14 +2987,96 @@
         '<details class="adv-box main-box" id="advBox" open><summary>' + (editing ? "✏️ Edycja oferty" : "➕ Dodaj ofertę — pełny formularz") + "</summary>" + renderAdminForm(draft) + "</details>" +
         (editing ? "" : '<details class="adv-box quick-box" id="quickBox"><summary>⚡ Szybkie dodawanie oferty (opcjonalnie — kliknij, aby rozwinąć)</summary>' + renderQuickAdd() + "</details>") +
         renderSettingsForm() +
+        imageOptimizerHtml() +
         renderSubscribersCard() +
       "</div><div>" + renderStatsCard() + renderAdminList() + "</div></div>";
     wireAdminEvents();
     wireQuickAdd();
     wireRequiredFields();
     wireSubscribers();
+    wireImageOptimizer();
     wireAdminTabs();
     loadAdminStats();
+  }
+
+  /* ===================== ADMIN: ZMNIEJSZANIE ZDJĘĆ (oszczędność transferu Supabase) ================== */
+  var STORAGE_IMG_RE = /https?:\/\/[^"\s]+\/storage\/v1\/object\/public\/offer-images\/[^"\s?]+/g;
+  function imageOptimizerHtml() {
+    return '<div class="admin-card" id="imgopt"><h2 style="font-size:17px;margin-bottom:4px">🗜 Zmniejsz zdjęcia (mniejszy transfer Supabase)</h2>' +
+      '<p style="font-size:12.5px;color:var(--ink-dim);margin:0 0 10px">Nowe zdjęcia są już zmniejszane automatycznie (WebP, maks. 1200 px). Ten przycisk robi to samo ze zdjęciami, które są już w ofertach. Najpierw pobierze się <b>kopia zapasowa ofert (plik JSON)</b>, potem zdjęcia zostaną podmienione na mniejsze. Stare pliki zostają w magazynie, ale przestają być używane.</p>' +
+      '<button type="button" class="btn" id="imgopt_scan">1. Sprawdź rozmiar zdjęć</button> <button type="button" class="btn primary" id="imgopt_run" hidden>2. Zmniejsz zdjęcia</button>' +
+      '<div class="hint" id="imgopt_msg" role="status" style="margin-top:8px"></div></div>';
+  }
+  function collectStorageImages() {
+    var map = {};
+    JSON.stringify(state.offers || []).replace(STORAGE_IMG_RE, function (u) { map[u.replace(/\\/g, "")] = 1; return u; });
+    return Object.keys(map);
+  }
+  function shrinkBlob(blob, maxW, q) {
+    return new Promise(function (resolve) {
+      var url = URL.createObjectURL(blob), img = new Image();
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(null); };
+      img.onload = function () {
+        var sc = Math.min(1, maxW / img.width), c = document.createElement("canvas");
+        c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+        var cx = c.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, c.width, c.height); cx.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        var du; try { du = c.toDataURL("image/webp", q); if (du.indexOf("data:image/webp") !== 0) du = c.toDataURL("image/jpeg", q); } catch (e) { resolve(null); return; }
+        resolve(du);
+      };
+      img.src = url;
+    });
+  }
+  function wireImageOptimizer() {
+    var scan = byId("imgopt_scan"), run = byId("imgopt_run"), msg = byId("imgopt_msg"); if (!scan) return;
+    var sizes = {};
+    function mb(n) { return (n / 1048576).toFixed(1).replace(".", ",") + " MB"; }
+    scan.addEventListener("click", function () {
+      var urls = collectStorageImages(); if (!urls.length) { msg.textContent = "Nie znaleziono zdjęć w magazynie Supabase."; return; }
+      scan.disabled = true; sizes = {}; var done = 0, total = 0;
+      Promise.all(urls.map(function (u) {
+        return fetch(u).then(function (r) { return r.blob(); }).then(function (b) { sizes[u] = b.size; total += b.size; }, function () {}).then(function () { done++; msg.textContent = "Sprawdzam… " + done + "/" + urls.length; });
+      })).then(function () {
+        scan.disabled = false;
+        var big = urls.filter(function (u) { return (sizes[u] || 0) > 130 * 1024; });
+        msg.textContent = "Zdjęć: " + urls.length + ", razem " + mb(total) + ". Większych niż 130 KB: " + big.length + (big.length ? " — kliknij „2. Zmniejsz zdjęcia”." : " — nic do zmniejszenia.");
+        run.hidden = !big.length;
+      });
+    });
+    run.addEventListener("click", function () {
+      if (!window.confirm("Pobiorę kopię zapasową ofert, a potem zmniejszę zdjęcia i zapiszę zmiany w ofertach. Kontynuować?")) return;
+      run.disabled = true; scan.disabled = true;
+      try { // kopia zapasowa
+        var blob = new Blob([JSON.stringify(state.offers, null, 1)], { type: "application/json" }), a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = "oferty-kopia-" + new Date().toISOString().slice(0, 10) + ".json"; document.body.appendChild(a); a.click(); a.remove();
+      } catch (e) {}
+      var urls = collectStorageImages().filter(function (u) { return (sizes[u] || 0) > 130 * 1024; }), repl = {}, saved = 0, i = 0;
+      function next() {
+        if (i >= urls.length) return Promise.resolve();
+        var u = urls[i++]; msg.textContent = "Zmniejszam zdjęcie " + i + "/" + urls.length + "…";
+        return fetch(u).then(function (r) { return r.blob(); }).then(function (b) { return shrinkBlob(b, 1100, 0.74).then(function (du) {
+          if (!du) return;
+          return fetch(du).then(function (r) { return r.blob(); }).then(function (nb) {
+            if (nb.size > b.size * 0.85) return; // bez sensu podmieniać, jeśli zysk jest mały
+            return SB.uploadDataUrl(du).then(function (nu) { repl[u] = nu; saved += b.size - nb.size; });
+          });
+        }); }).catch(function () {}).then(next);
+      }
+      next().then(function () {
+        var changed = [];
+        state.offers = (state.offers || []).map(function (o) {
+          var js = JSON.stringify(o), orig = js;
+          Object.keys(repl).forEach(function (k) { js = js.split(k).join(repl[k]); });
+          if (js === orig) return o; var n = JSON.parse(js); changed.push(n); return n;
+        });
+        var j = 0;
+        function saveNext() { if (j >= changed.length) return Promise.resolve(); return SB.upsertOffer(changed[j++]).catch(function () {}).then(saveNext); }
+        return saveNext().then(function () {
+          run.hidden = true; scan.disabled = false; run.disabled = false;
+          msg.textContent = "✔ Gotowe: zmniejszono " + Object.keys(repl).length + " zdjęć w " + changed.length + " ofertach, oszczędność ok. " + mb(saved) + " na każde pełne załadowanie. Kopia zapasowa została pobrana na Twój komputer.";
+        });
+      });
+    });
   }
 
 
