@@ -22,6 +22,16 @@
   status = 200
 
 [[redirects]]
+  from = "/niezbednik"
+  to = "/.netlify/functions/seo"
+  status = 200
+
+[[redirects]]
+  from = "/niezbednik/*"
+  to = "/.netlify/functions/seo"
+  status = 200
+
+[[redirects]]
   from = "/sitemap.xml"
   to = "/.netlify/functions/seo"
   status = 200
