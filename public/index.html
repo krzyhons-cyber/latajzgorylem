@@ -2285,7 +2285,7 @@
   var draftIgImage = "";
 
   // Optional: turn a plain partner link (e.g. Trip.com) into my Travelpayouts affiliate link (Edge Function "flights", action "convert")
-  function isAlreadyPartnerLink(u) { return /(^|\.)(tp\.media|tpk\.lv|tp\.st|c\d+\.travelpayouts\.com|travelpayouts\.com|clk\.tradedoubler\.com|tradedoubler\.com|link-open\.space|mylead\.global|mylead\.eu|c\.mylead\.eu|naiawork\.com|ad\.admitad\.com)(\/|$)/i.test(String(u).replace(/^https?:\/\//i, "")); }
+  function isAlreadyPartnerLink(u) { return /(^|\.)(tp\.media|tpk\.lv|tp\.st|c\d+\.travelpayouts\.com|travelpayouts\.com|clk\.tradedoubler\.com|tradedoubler\.com|link-open\.space|mylead\.global|mylead\.eu|c\.mylead\.eu|naiawork\.com|codeaven\.com|bywiola\.com|ad\.admitad\.com)(\/|$)/i.test(String(u).replace(/^https?:\/\//i, "")); }
   // ---- Tradedoubler: linki do wybranych sklepów (np. exim.pl) zamieniamy na link śledzący, bez żadnego API ----
   // Ustawienia (Admin → Ustawienia): tdSiteId = ID Twojej strony (a), tdRules = linie "domena;ID programu;ID reklamy (opcjonalnie)".
   var TD_DEFAULT_SITE = "3506385", TD_DEFAULT_RULES = "exim.pl;334260\neximtours.pl;334260";
@@ -2298,12 +2298,13 @@
   }
   // ---- MyLead i inne sieci: własne linki śledzące (Ustawienia → „domena;link śledzący”) ----
   // Jeśli link zawiera {url}, wstawiamy w to miejsce zakodowany adres strony (deeplink); bez {url} wszystkie linki do domeny prowadzą na Twój link śledzący (strona docelowa kampanii).
-  var MY_DEFAULT_RULES = "esky.pl;https://link-open.space/a/QWVP2Ioz9gfOAMX?dl_url={url}";
+  var MY_DEFAULT_RULES = "";
+  var MY_LEGACY_ESKY_ID = "QWVP2Ioz9gfOAMX";
   // Reguły wbudowane (zawsze aktywne, jeśli w Ustawieniach nie ma własnej reguły dla tej domeny): Admitad → DiscoverCars
-  var MY_BUILTIN_RULES = "discovercars.com;https://naiawork.com/g/wqjhitsyjqcd03c17db25ea594bb46/?ulp={url}";
+  var MY_BUILTIN_RULES = "discovercars.com;https://naiawork.com/g/wqjhitsyjqcd03c17db25ea594bb46/?ulp={url}\ntickets.pl;https://codeaven.com/g/yz77ffmmn6cd03c17db247966ab878/?ulp={url}\nesky.pl;https://bywiola.com/g/dbw9okrdzfcd03c17db2d6585a7526/?ulp={url}";
   function myRules() {
     var st = state.settings || {}, raw = typeof st.myRules === "string" ? st.myRules : MY_DEFAULT_RULES;
-    var parsed = parseMyRules(raw), have = {};
+    var parsed = parseMyRules(raw).filter(function (r) { return !(r.domain === "esky.pl" && r.tpl.indexOf(MY_LEGACY_ESKY_ID) >= 0); }), have = {};
     parsed.forEach(function (r) { have[r.domain] = 1; });
     parseMyRules(MY_BUILTIN_RULES).forEach(function (r) { if (!have[r.domain]) parsed.push(r); });
     return parsed;
@@ -2319,7 +2320,11 @@
     var host = url.replace(/^https?:\/\//i, "").replace(/[\/?#].*$/, "").toLowerCase().replace(/^www\d*\./, ""), rules = myRules();
     for (var i = 0; i < rules.length; i++) {
       var d = rules[i].domain;
-      if (host === d || host.slice(-(d.length + 1)) === "." + d) return rules[i].tpl.indexOf("{url}") >= 0 ? rules[i].tpl.split("{url}").join(encodeURIComponent(url.replace(/\+/g, "%2B").replace(/\[/g, "%5B").replace(/\]/g, "%5D"))) : rules[i].tpl;
+      if (host === d || host.slice(-(d.length + 1)) === "." + d) {
+        if (rules[i].tpl.indexOf("{url}") < 0) return rules[i].tpl;
+        var legacy = rules[i].tpl.indexOf("link-open.space") >= 0 || rules[i].tpl.indexOf("mylead") >= 0;
+        return rules[i].tpl.split("{url}").join(encodeURIComponent(legacy ? url.replace(/\+/g, "%2B").replace(/\[/g, "%5B").replace(/\]/g, "%5D") : url));
+      }
     }
     return null;
   }
@@ -2881,7 +2886,7 @@
           '<p style="font-size:12.5px;color:var(--ink-dim);margin:0 0 10px">Wklejasz zwykły link do sklepu (np. z exim.pl), a strona sama zamienia go na Twój link Tradedoubler — przy zapisie oferty oraz po kliknięciu „🔗 Travelpayouts”. ID strony i ID programu znajdziesz w panelu Tradedoubler (Programy → Exim Tours; Zasoby → Strony).</p>' +
           '<div class="field"><label for="s_tdSite">ID Twojej strony w Tradedoubler (parametr a)</label><input id="s_tdSite" inputmode="numeric" value="' + escapeHtml(s.tdSiteId || TD_DEFAULT_SITE) + '" placeholder="np. 1234567"></div>' +
           '<div class="field"><label for="s_tdRules">Programy: po jednej linii „domena;ID programu;ID reklamy (opcjonalnie)”</label><textarea id="s_tdRules" rows="3" placeholder="exim.pl;12345&#10;eximtours.pl;12345">' + escapeHtml(s.tdRules || TD_DEFAULT_RULES) + "</textarea></div>" +
-          '<h3 style="font-size:15px;margin:18px 0 4px">MyLead (eSky) i inne sieci — własne linki śledzące</h3>' +
+          '<h3 style="font-size:15px;margin:18px 0 4px">Własne linki śledzące (MyLead, Admitad…) — eSky, tickets.pl i DiscoverCars działają automatycznie (Admitad)</h3>' +
           '<p style="font-size:12.5px;color:var(--ink-dim);margin:0 0 10px">Po jednej linii: „domena;Twój link śledzący”. Każdy link do tej domeny (np. do esky.pl) zamieni się przy zapisie na Twój link afiliacyjny. Jeśli kampania ma deeplink, wstaw w linku <b>{url}</b> w miejscu adresu docelowego — wtedy link poprowadzi na konkretną podstronę. Bez {url} link prowadzi na stronę docelową kampanii.</p>' +
           '<div class="field"><label for="s_myRules">Własne reguły (domena;link)</label><textarea id="s_myRules" rows="3" placeholder="esky.pl;https://link-open.space/a/TWOJ_KOD">' + escapeHtml(typeof s.myRules === "string" ? s.myRules : MY_DEFAULT_RULES) + "</textarea></div>" +
           '<div class="field"><label for="s_contact">E-mail kontaktowy (pokazywany w polityce prywatności)</label><input id="s_contact" type="email" value="' + escapeHtml(s.contactEmail || "") + '" placeholder="kontakt@twojadomena.pl"></div>' +
@@ -3771,6 +3776,7 @@
 
   /* ===================== ADMIN: AFFILIATE LINK GENERATOR ================== */
   function linkNetworkLabel(url, out) {
+    if (/naiawork\.com|codeaven\.com|bywiola\.com|admitad/i.test(out)) return "Admitad";
     if (/link-open\.space|mylead/i.test(out)) return "MyLead";
     if (/tradedoubler/i.test(out)) return "Tradedoubler";
     if (/tp\.media|tpk\.lv|tp\.st|travelpayouts/i.test(out)) return "Travelpayouts";
