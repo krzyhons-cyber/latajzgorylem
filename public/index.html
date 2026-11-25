@@ -572,6 +572,7 @@
     ".gd-body{font-size:16.5px;line-height:1.7;color:#0b1a30}.gd-body h2{font-size:22px;margin:26px 0 8px;color:#0b2447}.gd-body h2:first-child{margin-top:0}.gd-body h3{font-size:18px;margin:20px 0 6px;color:#0b2447}",
     ".gd-body p,.gd-body li{color:#0b1a30}.gd-body ul,.gd-body ol{padding-left:22px}.gd-body li{margin:4px 0}.gd-body img{max-width:100%;border-radius:10px}.gd-body a{color:#14598c;font-weight:600}.gd-body strong{color:#0b1a30}.gd-body em{color:#33475f}",
     ".gd-tip{background:#fff6e0;border-left:4px solid #feac23;border-radius:8px;padding:12px 14px;margin:16px 0;font-size:15.5px;color:#3a2a00}.gd-tip strong{color:#3a2a00}",
+    ".gd-adm-filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.gd-adm-filters input,.gd-adm-filters select{flex:1 1 150px;min-width:0;padding:9px 10px;border-radius:8px;border:1px solid #c9d6e4;background:#fff;color:#12263a;font:inherit}",
     ".gd-ad{margin:24px 0 6px;text-align:center}.gd-ad small{display:block;font-size:11px;color:#d6e7f8;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase}.gd-ad a{display:inline-block;max-width:100%}.gd-ad img{max-width:100%;height:auto;border-radius:8px;display:block}",
     ".gd-share{margin:22px 0 8px;display:flex;gap:8px;flex-wrap:wrap}.gd-note{font-size:12.5px;color:#d6e7f8;margin:10px 0 22px}",
     ".gd-rel h2,.gd-more-list h2{font-size:21px;margin:26px 0 10px}.gd-rel p a{color:#ffd98a}.gd-more-list{background:#fff;border-radius:14px;padding:6px 16px 10px;box-shadow:0 2px 8px rgba(11,36,71,.18);margin-top:24px}.gd-more-list h2{color:#0b2447}",
@@ -3492,22 +3493,55 @@
     byId("view").innerHTML = adminTabsHtml() + (gdState.ed ? gdEditorHtml() : gdListHtml());
     wireAdminTabs(); gdState.ed ? wireGdEditor() : wireGdList();
   }
+  var gdFilter = { q: "", cat: "", stage: "", status: "" };
+  function gdFiltered() {
+    var q = gdFilter.q.trim().toLowerCase();
+    return (gdState.list || []).filter(function (g) {
+      if (gdFilter.cat && g.category !== gdFilter.cat) return false;
+      if (gdFilter.stage && (g.stages || []).indexOf(gdFilter.stage) < 0) return false;
+      if (gdFilter.status === "draft" && g.status !== "draft") return false;
+      if (gdFilter.status === "published" && g.status === "draft") return false;
+      if (q && ((g.title || "") + " " + (g.slug || "") + " " + (g.excerpt || "")).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  }
+  function gdRowsHtml() {
+    var rows = gdFiltered(), total = (gdState.list || []).length;
+    var cnt = '<div class="muted" style="font-size:12.5px;margin:0 0 8px" id="gd_count">Pokazano ' + rows.length + " z " + total + "</div>";
+    return cnt + (rows.length ? '<div class="gd-adm-list">' + rows.map(function (g) {
+      return '<div class="gd-adm-row"><div><b>' + escapeHtml(g.title || g.slug) + '</b><br><span class="muted" style="font-size:12px">' + escapeHtml(GUIDE_CATS[g.category] || g.category || "") + " · " + (g.status === "draft" ? "🟠 szkic" : "🟢 opublikowany") + (g.updatedAt ? " · " + escapeHtml(g.updatedAt) : "") + '</span></div><div><button type="button" class="btn small" data-gd-edit="' + escapeHtml(g.slug) + '">✏️ Edytuj</button></div></div>';
+    }).join("") + "</div>" : '<div class="empty">' + (total ? "Brak artykułów dla tego filtra." : "Brak artykułów. Kliknij „Nowy artykuł”.") + "</div>");
+  }
   function gdListHtml() {
-    var rows = (gdState.list || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    var opt = function (arr, cur) { return arr.map(function (o) { return '<option value="' + o[0] + '"' + (cur === o[0] ? " selected" : "") + ">" + escapeHtml(o[1]) + "</option>"; }).join(""); };
+    var catOpts = [["", "Wszystkie kategorie"]].concat(Object.keys(GUIDE_CATS).map(function (c) { return [c, GUIDE_CATS[c] + " (" + (gdState.list || []).filter(function (g) { return g.category === c; }).length + ")"]; }));
+    var stOpts = [["", "Wszystkie etapy"]].concat(GUIDE_STAGE_KEYS.map(function (c) { return [c, GUIDE_STAGES[c]]; }));
+    var statOpts = [["", "Wszystkie statusy"], ["published", "🟢 Opublikowane"], ["draft", "🟠 Szkice"]];
     return '<div class="card"><h2 style="margin:0 0 6px;font-size:18px">📚 Niezbędnik podróżnika — artykuły</h2>' +
       '<p class="muted" style="font-size:13px;margin:0 0 10px">Tu dodajesz i edytujesz poradniki. Opublikowane są widoczne pod adresem <b>/niezbednik</b> i w Google (mapa strony aktualizuje się sama).</p>' +
       (gdState.msg ? '<div class="hint" role="status" style="margin-bottom:8px">' + escapeHtml(gdState.msg) + "</div>" : "") +
       '<div style="margin-bottom:10px"><button type="button" class="btn primary" id="gd_new">+ Nowy artykuł</button> <a class="btn ghost" href="/niezbednik" target="_blank" rel="noopener">Zobacz na stronie ↗</a></div>' +
-      (rows.length ? '<div class="gd-adm-list">' + rows.map(function (g) {
-        return '<div class="gd-adm-row"><div><b>' + escapeHtml(g.title || g.slug) + '</b><br><span class="muted" style="font-size:12px">' + escapeHtml(GUIDE_CATS[g.category] || g.category || "") + " · " + (g.status === "draft" ? "🟠 szkic" : "🟢 opublikowany") + (g.updatedAt ? " · " + escapeHtml(g.updatedAt) : "") + '</span></div><div><button type="button" class="btn small" data-gd-edit="' + escapeHtml(g.slug) + '">✏️ Edytuj</button></div></div>';
-      }).join("") + "</div>" : '<div class="empty">Brak artykułów. Kliknij „Nowy artykuł”.</div>') + "</div>";
+      '<div class="gd-adm-filters"><input type="search" id="gdf_q" placeholder="Szukaj w tytułach…" aria-label="Szukaj artykułu" value="' + escapeHtml(gdFilter.q) + '">' +
+        '<select id="gdf_cat" aria-label="Kategoria">' + opt(catOpts, gdFilter.cat) + "</select>" +
+        '<select id="gdf_stage" aria-label="Etap podróży">' + opt(stOpts, gdFilter.stage) + "</select>" +
+        '<select id="gdf_status" aria-label="Status">' + opt(statOpts, gdFilter.status) + "</select>" +
+        '<button type="button" class="btn ghost small" id="gdf_clear">Wyczyść filtry</button></div>' +
+      '<div id="gd_adm_rows">' + gdRowsHtml() + "</div></div>";
   }
-  function wireGdList() {
-    var n = byId("gd_new"); if (n) n.addEventListener("click", function () { gdState.ed = gdEmpty(); gdState.isNew = true; gdState.msg = ""; renderGuidesAdmin(); });
+  function wireGdRows() {
     qsa("[data-gd-edit]").forEach(function (b) { b.addEventListener("click", function () {
       var g = (gdState.list || []).filter(function (x) { return x.slug === b.getAttribute("data-gd-edit"); })[0];
       if (g) { gdState.ed = JSON.parse(JSON.stringify(g)); gdState.isNew = false; gdState.msg = ""; renderGuidesAdmin(); }
     }); });
+  }
+  function wireGdList() {
+    var n = byId("gd_new"); if (n) n.addEventListener("click", function () { gdState.ed = gdEmpty(); gdState.isNew = true; gdState.msg = ""; renderGuidesAdmin(); });
+    var upd = function () { byId("gd_adm_rows").innerHTML = gdRowsHtml(); wireGdRows(); };
+    [["gdf_q", "q", "input"], ["gdf_cat", "cat", "change"], ["gdf_stage", "stage", "change"], ["gdf_status", "status", "change"]].forEach(function (x) {
+      var el = byId(x[0]); if (el) el.addEventListener(x[2], function () { gdFilter[x[1]] = el.value; upd(); });
+    });
+    var c = byId("gdf_clear"); if (c) c.addEventListener("click", function () { gdFilter = { q: "", cat: "", stage: "", status: "" }; renderGuidesAdmin(); });
+    wireGdRows();
   }
   function gdEditorHtml() {
     var g = gdState.ed, offerCats = [["", "— dowolne najnowsze —"]].concat(Object.keys(CATEGORY_LABELS).map(function (k) { return [k, CATEGORY_LABELS[k]]; }));
