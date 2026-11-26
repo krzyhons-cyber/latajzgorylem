@@ -573,6 +573,7 @@
     ".gd-body p,.gd-body li{color:#0b1a30}.gd-body ul,.gd-body ol{padding-left:22px}.gd-body li{margin:4px 0}.gd-body img{max-width:100%;border-radius:10px}.gd-body a{color:#14598c;font-weight:600}.gd-body strong{color:#0b1a30}.gd-body em{color:#33475f}",
     ".gd-tip{background:#fff6e0;border-left:4px solid #feac23;border-radius:8px;padding:12px 14px;margin:16px 0;font-size:15.5px;color:#3a2a00}.gd-tip strong{color:#3a2a00}",
     ".gd-adm-filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.gd-adm-filters input,.gd-adm-filters select{flex:1 1 150px;min-width:0;padding:9px 10px;border-radius:8px;border:1px solid #c9d6e4;background:#fff;color:#12263a;font:inherit}",
+    ".gd-yt{margin:18px auto;max-width:640px}.gd-yt-s{max-width:320px}.gd-yt-play,.gd-yt iframe{display:block;position:relative;width:100%;aspect-ratio:16/9;border:0;border-radius:10px;overflow:hidden;background:#000;padding:0;cursor:pointer}.gd-yt-s .gd-yt-play,.gd-yt-s iframe{aspect-ratio:9/16}.gd-yt-play img{width:100%;height:100%;object-fit:cover;display:block}.gd-yt-btn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(255,0,0,.9);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;padding-left:4px}.gd-yt-link{display:block;text-align:center;font-size:12.5px;margin-top:6px;color:#1f5f99}",
     ".gd-ad{margin:24px 0 6px;text-align:center}.gd-ad small{display:block;font-size:11px;color:#d6e7f8;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase}.gd-ad a{display:inline-block;max-width:100%}.gd-ad img{max-width:100%;height:auto;border-radius:8px;display:block}",
     ".gd-share{margin:22px 0 8px;display:flex;gap:8px;flex-wrap:wrap}.gd-note{font-size:12.5px;color:#d6e7f8;margin:10px 0 22px}",
     ".gd-rel h2,.gd-more-list h2{font-size:21px;margin:26px 0 10px}.gd-rel p a{color:#ffd98a}.gd-more-list{background:#fff;border-radius:14px;padding:6px 16px 10px;box-shadow:0 2px 8px rgba(11,36,71,.18);margin-top:24px}.gd-more-list h2{color:#0b2447}",
@@ -1839,6 +1840,25 @@
     t = t.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
     return t;
   }
+  // Link do YouTube w osobnej linii → lekki odtwarzacz (miniatura, film ładuje się dopiero po kliknięciu; youtube-nocookie)
+  function ytParse(l) {
+    var m = String(l || "").trim().match(/^<?https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^\s#]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[?&#][^\s>]*)?>?$/i);
+    return m ? { id: m[1], short: /\/shorts\//i.test(l) } : null;
+  }
+  function ytHtml(y) {
+    return '<div class="gd-yt' + (y.short ? " gd-yt-s" : "") + '"><button type="button" class="gd-yt-play" data-yt="' + y.id + '" aria-label="Odtwórz film"><img src="https://i.ytimg.com/vi/' + y.id + '/hqdefault.jpg" alt="Film z YouTube" loading="lazy"><span class="gd-yt-btn" aria-hidden="true">▶</span></button>' +
+      '<a class="gd-yt-link" href="https://www.youtube.com/' + (y.short ? "shorts/" : "watch?v=") + y.id + '" target="_blank" rel="noopener">Zobacz na YouTube ↗</a></div>';
+  }
+  document.addEventListener("click", function (ev) {
+    var b = ev.target && ev.target.closest ? ev.target.closest(".gd-yt-play") : null;
+    if (!b) return;
+    ev.preventDefault();
+    var box = b.parentNode, id = b.getAttribute("data-yt");
+    var f = document.createElement("iframe");
+    f.src = "https://www.youtube-nocookie.com/embed/" + id + "?autoplay=1&rel=0&playsinline=1";
+    f.title = "Film z YouTube"; f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.setAttribute("allowfullscreen", ""); f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+    box.replaceChild(f, b); box.classList.add("playing");
+  });
   function mdToHtml(md) {
     var lines = String(md || "").replace(/\r/g, "").split("\n"), out = [], para = [], list = null, quote = [];
     function flushP() { if (para.length) { out.push("<p>" + mdInline(para.join(" ")) + "</p>"); para = []; } }
@@ -1848,6 +1868,7 @@
     lines.forEach(function (raw) {
       var l = raw.trim(), m;
       if (!l) { flushAll(); return; }
+      var yt = ytParse(l); if (yt) { flushAll(); out.push(ytHtml(yt)); return; }
       if ((m = l.match(/^(#{2,3})\s+(.+)$/))) { flushAll(); out.push("<h" + m[1].length + ">" + mdInline(m[2]) + "</h" + m[1].length + ">"); return; }
       if (/^---+$/.test(l)) { flushAll(); out.push("<hr>"); return; }
       if ((m = l.match(/^>\s?(.*)$/))) { flushP(); flushL(); quote.push(m[1]); return; }
@@ -3563,7 +3584,7 @@
         '<div class="field wide"><label>Zdjęcie główne (opcjonalnie)</label><div class="iof-photos">' + (g.image ? '<span class="iof-ph"><img src="' + escapeHtml(g.image) + '" alt=""><button type="button" class="iof-ph-x" id="gd_imgx" title="Usuń">✕</button></span>' : "") + '<input type="file" id="gd_imgfile" accept="image/*"></div></div>' +
       "</div>" +
       '<div class="gd-toolbar"><b>Treść:</b> ' + [["h2", "Nagłówek"], ["h3", "Podnagłówek"], ["ul", "• Lista"], ["ol", "1. Lista"], ["b", "Pogrubienie"], ["a", "Link"], ["tip", "Wskazówka"]].map(function (t) { return '<button type="button" class="btn ghost small" data-gd-tool="' + t[0] + '">' + t[1] + "</button>"; }).join(" ") + '</div>' +
-      '<div class="gd-edcols"><textarea id="gd_body" rows="26" placeholder="Pisz akapity oddzielone pustą linią. Nagłówki: ## Tytuł sekcji. Listy: - punkt. Ramka: > wskazówka. Obraz: wklej zrzut Ctrl+V.">' + escapeHtml(g.body) + '</textarea><div><div class="gd-prev-h">Podgląd</div><div id="gd_prev" class="gd-body gd-prevbox">' + mdToHtml(g.body) + "</div></div></div>" +
+      '<div class="gd-edcols"><textarea id="gd_body" rows="26" placeholder="Pisz akapity oddzielone pustą linią. Nagłówki: ## Tytuł sekcji. Listy: - punkt. Ramka: > wskazówka. Film YouTube: wklej sam link w osobnej linii. Obraz: wklej zrzut Ctrl+V.">' + escapeHtml(g.body) + '</textarea><div><div class="gd-prev-h">Podgląd</div><div id="gd_prev" class="gd-body gd-prevbox">' + mdToHtml(g.body) + "</div></div></div>" +
       '<div class="form-actions" style="margin-top:12px"><button type="button" class="btn primary" id="gd_save">💾 Zapisz artykuł</button>' + (gdState.isNew ? "" : ' <a class="btn ghost" target="_blank" rel="noopener" href="/niezbednik/' + encodeURIComponent(g.slug) + '">Otwórz na stronie ↗</a> <button type="button" class="btn ghost" id="gd_del" style="color:#b42318">🗑 Usuń</button>') + "</div></div>";
   }
   function wireGdEditor() {
@@ -5278,6 +5299,7 @@
       "<h2>Kto jest administratorem danych</h2><p>Administratorem danych jest właściciel serwisu " + name + ". Kontakt: " + contact + ".</p>" +
       "<h2>Powiadomienia e-mail</h2><p>Jeśli zapiszesz się na powiadomienia, przetwarzamy Twój adres e-mail oraz datę zapisu w celu informowania o nowych ofertach. Podstawą jest Twoja zgoda (art. 6 ust. 1 lit. a RODO). Dane przechowujemy do momentu wycofania zgody. Zgodę możesz wycofać w każdej chwili, pisząc na adres kontaktowy lub korzystając z linku rezygnacji w wiadomości.</p>" +
       "<h2>Statystyki</h2><p>Serwis zlicza anonimowo wyświetlenia stron ofert oraz kliknięcia w linki partnerów. Nie zapisujemy przy tym danych osobowych i nie używamy plików cookie do śledzenia.</p>" +
+      "<h2>Filmy YouTube</h2><p>W niektórych poradnikach pokazujemy miniatury filmów z YouTube. Sam film (w trybie zwiększonej prywatności youtube-nocookie.com) ładuje się dopiero po kliknięciu „Odtwórz”; wtedy YouTube (Google) może przetwarzać dane zgodnie ze swoją polityką prywatności.</p>" +
       "<h2>Linki afiliacyjne</h2><p>Niektóre linki prowadzą do stron partnerów i są linkami afiliacyjnymi — jeśli dokonasz zakupu, możemy otrzymać prowizję bez dodatkowych kosztów dla Ciebie. Po przejściu na stronę partnera obowiązuje jego polityka prywatności i cookies.</p>" +
       "<h2>Infrastruktura</h2><p>Dane są przechowywane u dostawcy usług hostingowych i bazodanowych działających na zlecenie administratora.</p>" +
       "<h2>Twoje prawa</h2><p>Masz prawo dostępu do danych, ich sprostowania, usunięcia, ograniczenia przetwarzania, wniesienia sprzeciwu oraz wniesienia skargi do Prezesa Urzędu Ochrony Danych Osobowych.</p>" +
