@@ -2342,7 +2342,7 @@
   var MY_DEFAULT_RULES = "";
   var MY_LEGACY_ESKY_ID = "QWVP2Ioz9gfOAMX";
   // Reguły wbudowane (zawsze aktywne, jeśli w Ustawieniach nie ma własnej reguły dla tej domeny): Admitad → DiscoverCars
-  var MY_BUILTIN_RULES = "discovercars.com;https://naiawork.com/g/wqjhitsyjqcd03c17db25ea594bb46/?ulp={url}\ntickets.pl;https://codeaven.com/g/yz77ffmmn6cd03c17db247966ab878/?ulp={url}\nesky.pl;https://bywiola.com/g/dbw9okrdzfcd03c17db2d6585a7526/?ulp={url}";
+  var MY_BUILTIN_RULES = "discovercars.com;https://naiawork.com/g/wqjhitsyjqcd03c17db25ea594bb46/?ulp={url}\ntickets.pl;https://codeaven.com/c/yz77ffmmn6cd03c17db247966ab878/?ulp={url}\nesky.pl;https://bywiola.com/g/dbw9okrdzfcd03c17db2d6585a7526/?ulp={url}";
   function myRules() {
     var st = state.settings || {}, raw = typeof st.myRules === "string" ? st.myRules : MY_DEFAULT_RULES;
     var parsed = parseMyRules(raw).filter(function (r) { return !(r.domain === "esky.pl" && r.tpl.indexOf(MY_LEGACY_ESKY_ID) >= 0); }), have = {};
@@ -2357,12 +2357,14 @@
       return d && /^https?:\/\//i.test(t) ? { domain: d, tpl: t } : null;
     }).filter(Boolean);
   }
+  var ADMITAD_MODE_OVERRIDE = ""; // "", "c" (CPC) lub "g" (CPA), tylko dla tickets.pl – ustawiane tylko na czas generowania w Generatorze linków
   function myConvert(url) {
     var host = url.replace(/^https?:\/\//i, "").replace(/[\/?#].*$/, "").toLowerCase().replace(/^www\d*\./, ""), rules = myRules();
     for (var i = 0; i < rules.length; i++) {
       var d = rules[i].domain;
       if (host === d || host.slice(-(d.length + 1)) === "." + d) {
         if (rules[i].tpl.indexOf("{url}") < 0) return rules[i].tpl;
+        if (ADMITAD_MODE_OVERRIDE && rules[i].domain === "tickets.pl") rules[i] = { domain: rules[i].domain, tpl: rules[i].tpl.replace(/^(https:\/\/(?:codeaven|naiawork|bywiola)\.com\/)[cg](\/)/, "$1" + ADMITAD_MODE_OVERRIDE + "$2") };
         var legacy = rules[i].tpl.indexOf("link-open.space") >= 0 || rules[i].tpl.indexOf("mylead") >= 0;
         return rules[i].tpl.split("{url}").join(encodeURIComponent(legacy ? url.replace(/\+/g, "%2B").replace(/\[/g, "%5B").replace(/\]/g, "%5D") : url));
       }
@@ -3860,12 +3862,14 @@
     return '<div id="lgBox"><div class="card" style="padding:16px;max-width:760px"><h2 style="margin:0 0 6px;font-size:18px">🔗 Generator linków afiliacyjnych</h2><p class="muted" style="margin:0 0 8px;font-size:13px">Wklej zwykły link do oferty (po jednym w linii). Dostaniesz gotowy link afiliacyjny do skopiowania. Działa wg reguł z Ustawień (Tradedoubler, MyLead, Travelpayouts).</p>' +
       '<textarea id="lg_in" rows="3" placeholder="https://www.esky.pl/...&#10;https://www.tui.pl/...&#10;https://www.exim.pl/..."></textarea>' +
       '<div class="field"><label for="lg_sub">Znacznik klienta/kampanii (opcjonalnie, tylko dla Travelpayouts)</label><input id="lg_sub" type="text" maxlength="40" placeholder="np. kasia-praga"></div>' +
+      '<div class="field"><label for="lg_mode">Model rozliczenia dla tickets.pl (eSky i DiscoverCars zawsze CPA)</label><select id="lg_mode"><option value="">Domyślnie (CPC)</option><option value="c">CPC – płatne za kliknięcie</option><option value="g">CPA – płatne za sprzedaż</option></select></div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="lg_go">Generuj link</button><button type="button" class="btn ghost" id="lg_copyAll" hidden>Kopiuj wszystkie</button></div>' +
       '<div id="lg_out" style="margin-top:10px"></div></div></div>';
   }
   function wireLinkGenerator() {
     var go = byId("lg_go"); if (!go) return;
     var all = byId("lg_copyAll"), outBox = byId("lg_out"), results = [];
+    try { var sm = localStorage.getItem("lg_mode"); if (sm && byId("lg_mode")) byId("lg_mode").value = sm; } catch (e) {}
     function cp(text, btn) {
       var o = btn.textContent, done = function () { btn.textContent = "Skopiowano!"; setTimeout(function () { btn.textContent = o; }, 1500); };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
@@ -3874,6 +3878,7 @@
     go.addEventListener("click", function () {
       var urls = byId("lg_in").value.split(/\s+/).map(function (x) { return x.trim(); }).filter(Boolean);
       var sub = byId("lg_sub").value.trim();
+      var modeSel = byId("lg_mode"); try { localStorage.setItem("lg_mode", modeSel.value); } catch (e) {}
       results = []; outBox.innerHTML = ""; all.hidden = true;
       if (!urls.length) { outBox.innerHTML = '<div class="msg err">Wklej przynajmniej jeden link.</div>'; return; }
       go.disabled = true;
@@ -3881,7 +3886,9 @@
       urls.forEach(function (u, i) {
         chain = chain.then(function () {
           if (!/^https?:\/\//i.test(u)) return { u: u, err: "To nie jest pełny link (https://…)." };
-          return convertAffiliateLink(u, sub).then(function (out) { return { u: u, out: out }; }, function (e) { return { u: u, err: (e && e.message) || "Nie udało się." }; });
+          ADMITAD_MODE_OVERRIDE = byId("lg_mode") ? byId("lg_mode").value : "";
+          var cv = convertAffiliateLink(u, sub); ADMITAD_MODE_OVERRIDE = "";
+          return cv.then(function (out) { return { u: u, out: out }; }, function (e) { return { u: u, err: (e && e.message) || "Nie udało się." }; });
         }).then(function (r) {
           results.push(r);
           var row = document.createElement("div"); row.className = "lg-row"; row.style.cssText = "margin:8px 0;padding:10px;border:1px solid var(--line,#d7dde6);border-radius:10px";
