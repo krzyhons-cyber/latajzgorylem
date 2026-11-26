@@ -87,6 +87,8 @@ function mdToHtml(md) {
     const l = raw.trim();
     let m;
     if (!l) { flushAll(); continue; }
+    { const y = l.match(/^<?https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^\s#]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[?&#][^\s>]*)?>?$/i);
+      if (y) { flushAll(); out.push('<p><a href="https://www.youtube.com/watch?v=' + y[1] + '" rel="noopener">▶ Obejrzyj film na YouTube</a></p>'); continue; } }
     if ((m = l.match(/^(#{2,3})\s+(.+)$/))) { flushAll(); out.push("<h" + m[1].length + ">" + mdInline(m[2]) + "</h" + m[1].length + ">"); continue; }
     if (/^---+$/.test(l)) { flushAll(); out.push("<hr>"); continue; }
     if ((m = l.match(/^>\s?(.*)$/))) { flushP(); flushL(); quote.push(m[1]); continue; }
