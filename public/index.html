@@ -2029,9 +2029,10 @@
 
   /* ============================== TEMPLATES =============================== */
 
-  function thumbInner(offer) {
+  function thumbInner(offer, big) {
     if (offer.image) {
-      return '<img src="' + escapeHtml(offer.image) + '" alt="' + escapeHtml(offer.title) +
+      var small = !big && offer.thumb && offer.thumbSrc === offer.image;
+      return '<img src="' + escapeHtml(small ? offer.thumb : offer.image) + '" alt="' + escapeHtml(offer.title) +
         '" loading="lazy" data-art-slug="' + escapeHtml(offer.slug) +
         '" onerror="window.__handleThumbImgError(this)">';
     }
@@ -3053,6 +3054,7 @@
     return '<div class="admin-card" id="imgopt"><h2 style="font-size:17px;margin-bottom:4px">🗜 Zmniejsz zdjęcia (mniejszy transfer Supabase)</h2>' +
       '<p style="font-size:12.5px;color:var(--ink-dim);margin:0 0 10px">Nowe zdjęcia są już zmniejszane automatycznie (WebP, maks. 1200 px). Ten przycisk robi to samo ze zdjęciami, które są już w ofertach. Najpierw pobierze się <b>kopia zapasowa ofert (plik JSON)</b>, potem zdjęcia zostaną podmienione na mniejsze. Stare pliki zostają w magazynie, ale przestają być używane.</p>' +
       '<button type="button" class="btn" id="imgopt_scan">1. Sprawdź rozmiar zdjęć</button> <button type="button" class="btn primary" id="imgopt_run" hidden>2. Zmniejsz zdjęcia</button>' +
+      ' <button type="button" class="btn" id="imgopt_thumbs">3. Utwórz miniatury kart</button>' +
       '<div class="hint" id="imgopt_msg" role="status" style="margin-top:8px"></div></div>';
   }
   function collectStorageImages() {
@@ -3077,6 +3079,18 @@
   }
   function wireImageOptimizer() {
     var scan = byId("imgopt_scan"), run = byId("imgopt_run"), msg = byId("imgopt_msg"); if (!scan) return;
+    var tb = byId("imgopt_thumbs");
+    if (tb) tb.addEventListener("click", function () {
+      var todo = (state.offers || []).filter(function (o) { return o && o.image && /^https?:\/\//i.test(o.image) && !(o.thumb && o.thumbSrc === o.image); }), i = 0, made = 0;
+      if (!todo.length) { msg.textContent = "Wszystkie oferty mają już miniatury kart."; return; }
+      tb.disabled = true;
+      function next() {
+        if (i >= todo.length) return Promise.resolve();
+        var o = todo[i++]; msg.textContent = "Tworzę miniatury… " + i + "/" + todo.length;
+        return ensureThumbImage(o).then(function (r) { if (r.thumb && r.thumbSrc === r.image) { made++; return SB.upsertOffer(r).catch(function () {}); } }).then(next);
+      }
+      next().then(function () { tb.disabled = false; msg.textContent = "✔ Utworzono miniatury dla " + made + " z " + todo.length + " ofert. Karty na stronie ładują teraz małe pliki (ok. 20 KB zamiast pełnego zdjęcia)."; });
+    });
     var sizes = {};
     function mb(n) { return (n / 1048576).toFixed(1).replace(".", ",") + " MB"; }
     scan.addEventListener("click", function () {
@@ -4697,16 +4711,27 @@
 
   function renderOgDataUrl(offer) { return renderCardDataUrl(offer, "og"); }
 
+  // Mała miniatura do kart na liście (ok. 520 px, WebP) – karty ładują ~20 KB zamiast pełnego zdjęcia (oszczędność Cached Egress).
+  function ensureThumbImage(record) {
+    if (!record || !record.image || !SB.enabled() || !SB.isLoggedIn()) return Promise.resolve(record);
+    if (record.thumb && record.thumbSrc === record.image) return Promise.resolve(record);
+    if (!/^https?:\/\//i.test(record.image)) return Promise.resolve(record);
+    return fetch(record.image).then(function (r) { if (!r.ok) throw new Error("img"); return r.blob(); })
+      .then(function (b) { return shrinkBlob(b, 520, 0.7); })
+      .then(function (du) { if (!du) throw new Error("shrink"); return SB.uploadDataUrl(du); })
+      .then(function (url) { record.thumb = url; record.thumbSrc = record.image; return record; })
+      .catch(function () { return record; });
+  }
   // Resolves with the same record, now carrying ogImage when it could be made.
   function ensureOgImage(record) {
     if (!SB.enabled() || !SB.isLoggedIn()) return Promise.resolve(record);
     var key = ogKeyOf(record);
-    if (record.ogImage && record.ogKey === key) return Promise.resolve(record);
+    if (record.ogImage && record.ogKey === key) return ensureThumbImage(record);
     var work = renderOgDataUrl(record).then(function (dataUrl) { return SB.uploadDataUrl(dataUrl); }).then(function (url) {
       record.ogImage = url;
       record.ogKey = key;
       return record;
-    });
+    }).then(ensureThumbImage);
     // never let thumbnail generation block saving (some browsers/shields stall canvas or uploads)
     var limit = new Promise(function (res) { setTimeout(function () { res(record); }, 12000); });
     return Promise.race([work, limit]).catch(function () { return record; });
